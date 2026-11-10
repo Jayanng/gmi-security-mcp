@@ -40,7 +40,7 @@ EXPECTED_TRIAGE_KEYS = {
     "escalation_failed", "latency_seconds", "usage", "cost_usd",
     "estimate_usd", "typical_usd", "max_usd", "unparsed", "error",
     "redacted", "redaction_count", "reasoning_model_warning",
-    "retried_unparsed",
+    "retried_unparsed", "finding_id", "db_warning",
 }
 
 

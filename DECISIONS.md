@@ -462,6 +462,123 @@ Decisions:
   can never reach 2 signals; that is by design, the evidence
   object is the path.
 
+## 19. Phase A2, findings store, v0.5.0, 2026-11-10
+
+Sources: 0sec-labs/0 packages/db schema (commit a891ba1,
+dual MIT OR Apache-2.0), shape adapted into Python sqlite3
+and SQL, no 0 TypeScript copied, see NOTICE; Python sqlite3
+docs (WAL mode, foreign keys pragma, one connection per
+operation, no shared global connection); plan
+plan-10x-5dollar-v050-2026-11-10.md section 5.
+
+Decisions:
+- SQLite store, Python sqlite3 stdlib, no new dependency.
+  New module src/gmi_security_mcp/store.py, schema in
+  migrations/001_init.sql (schema v1) with a schema_version
+  table, WAL mode, foreign keys on, one connection per tool
+  call via a context manager, no shared global connection.
+  Migration is idempotent: a fresh DB migrates to v1, a DB
+  with data migrates without losing findings.
+- Tables: scans, targets, findings, verdicts, pipelineEvents,
+  triageMemories, cases, workItems, artifacts, plus a
+  verifications table added in A2 (not in the plan list) so
+  mark_confirmed can check for a reproduced verification
+  result. findings also carries code (redacted before
+  storage) and evidence_json, which the plan list omits but
+  get_finding needs. No new dependency, no ORM.
+- `check` is a reserved keyword in SQLite, so the column is
+  quoted as "check" in the schema and in every SQL statement.
+  Python dict keys stay "check". Found by the first store
+  test run, fixed before any live run.
+- Finding status values, exact: new, triaged, verified,
+  confirmed, false_positive, suppressed, fixed. Moves one
+  step forward at a time, except any status can move to
+  false_positive or suppressed, and false_positive and
+  suppressed can move back to triaged when a new scan finds
+  the same code again, with the history retained. Every
+  status change is a pipeline event with actor and time,
+  never silent. Transition rules live in
+  validate.validate_status_transition.
+- Dedup key is (code_hash, check, file) on the redacted code:
+  a re-scan of the same code refreshes the existing finding
+  instead of creating a duplicate. Dataset-v2 S10 and F11
+  share identical code and check, so the MockLLM floor stores
+  55 unique findings from 56 calls, by design.
+- Business impact is a JSON object on the finding: label
+  Urgent/High/Moderate/Low/Not assessed, affected customers,
+  services, data, rationale. update_finding changes business
+  impact only, never technical severity, verification,
+  review gates, or patch permissions.
+- Suppression guard (isDisclosureWorthy): suppressing a
+  critical/high finding with business impact Urgent/High is
+  refused unless force true and a reason is given; the
+  suppression is then recorded with reason and actor, and
+  the finding stays visible with status suppressed, never
+  deleted.
+- Triage memories are scope-matched exactly by global,
+  package (top-level directory of the finding file), or
+  target (repo path of the finding's scan), and only when the
+  check matches. They are shown as a hint with id and reason
+  in get_finding; they never auto-reject. Memories are
+  created only by a human mark_fp call, never by the server
+  alone.
+- DB location: per-user default ~/.gmi-security-mcp/
+  findings.db. Never commit findings or the DB;
+  .gmi-security-mcp/ and findings.db added to .gitignore.
+  An explicit db_path is allowed, and the tool result always
+  warns that the caller is responsible for not committing it.
+  Impl functions treat db_path None as no store, so unit
+  tests never touch the real default DB; the MCP tool
+  wrappers resolve None to the default path.
+- Five new tools, total 12: list_findings (summaries only,
+  no code, limit default 20 max 100, opaque offset cursor),
+  get_finding (full finding with code, evidence, verdict
+  history, pipeline events, verification results, business
+  impact, matching memories), update_finding (reason
+  required, refuses status skips), mark_fp (reason required,
+  scope default target, creates the memory), mark_confirmed
+  (reason required, only with a reproduced verification).
+- Wiring: triage_semgrep_finding stores its verdict and
+  returns finding_id; repo_scan stores every finding and
+  returns scan_id, with one finding_id per finding, and a
+  dry run writes nothing; verify_finding resolves a
+  finding_id from the store, stores the verification result
+  and its artifact hashes, and moves a reproduced finding
+  to verified; draft_private_disclosure with a finding_id
+  refuses a finding not in the store with status confirmed
+  or triaged with verdict real and confidence at or above
+  0.8, and says why. An inline finding without a finding_id
+  keeps the v0.4.0 gate (verdict real, confidence at or
+  above 0.8). sent is always false.
+- A2 fix to an A1 latent rule, found by the store tests:
+  norm_verification_result required every assertion to pass
+  on reproduced, but the SQLi oracle reproduces on 2 of 3
+  signals, so a real reproduced result failed validation and
+  verify_finding returned an internal error. The rule is now
+  non-empty assertions with at least one passing assertion;
+  a reproduced result with only failing assertions is still
+  invalid, and the A1 test for that still passes.
+- Live key method, same as A1: the registered
+  custom.gmi-cloud credential as an in-memory GMI_API_KEY env
+  surrogate, via dynamic_credential_entry, exactly as
+  demo/term-server.py does it. Never printed, never written
+  to a file. Live runs use the project venv (.venv-local,
+  Python 3.12.3); system Python is 3.12.3, Python 3.13.18 is
+  at ~/.local/bin/python3.13 via uv. The workspace copy is
+  not a git checkout (no .git), so no push was made from it;
+  the tree is left ready for Phase A3.
+- Live results, 2026-11-10: 12 examples 8/12, 0 unparsed,
+  $0.0036083 (fails spring, apachepath, struts, xz, same set as
+  Phase 6); 50-finding dataset 48/50, accuracy 0.960,
+  precision 1.000, recall 0.920, 0 unparsed, $0.0117724,
+  exactly the v0.4.0 run 2 result, so the store did not change
+  triage accuracy. Total A2 live $0.0153807, inside the $0.15
+  plan bound and the $1.00 per-run cap. Store check on live
+  data: 61 unique findings in the default DB (12 + 49,
+  S10/F11 deduped), all triaged, 62 verdicts, 61 events.
+  See SPEND.md and live-12-results-2026-11-10-phaseA2.json
+  and live-dataset50-results-2026-11-10-phaseA2.json.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and

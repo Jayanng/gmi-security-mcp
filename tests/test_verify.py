@@ -639,6 +639,18 @@ def test_verify_no_verdict_finding_refused(tmp_path):
     assert result["confirmed"] is False
 
 
+def test_verify_finding_id_without_finding_refused(tmp_path):
+    repo = _repo(tmp_path)
+    result = srv.verify_impl(
+        finding=None,
+        finding_id="finding-1",
+        repo_path=str(repo),
+        pricing=PRICING,
+    )
+    assert result["status"] == "error"
+    assert "findings store" in result["error"]
+
+
 def test_verify_poc_ran_not_reproduced(tmp_path):
     repo = _repo(tmp_path)
     safe_poc = (
@@ -866,6 +878,11 @@ def test_list_tools_includes_verify_finding():
     tools = proc.stdout.split()
     assert "verify_finding" in tools
     for name in (
+        "list_findings",
+        "get_finding",
+        "update_finding",
+        "mark_fp",
+        "mark_confirmed",
     ):
         assert name in tools
-    assert len(tools) == 7
+    assert len(tools) == 12

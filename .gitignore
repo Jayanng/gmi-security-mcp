@@ -12,7 +12,10 @@ AUDIT-*.md
 .DS_Store
 .venv-local/
 .pytest_cache/
+.gmi-security-mcp/
+findings.db
 live-12-results-*.json
 live-dataset50-results-*.json
+live-verify-*.json
 demo/
 X-THREAD-DRAFT.md

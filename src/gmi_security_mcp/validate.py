@@ -164,8 +164,6 @@ def parse_triage(content):
     }
 
 
-
-
 # --- VerificationResult, Phase A1 (v0.5.0) -------------------------
 # Shape adapted from 0sec-labs/0 VerificationResultSchema
 # (https://github.com/0sec-labs/0, commit a891ba1, docs
@@ -283,10 +281,13 @@ def norm_verification_result(result):
         clean_assertions.append(clean)
     if status == "reproduced" and not clean_assertions:
         return None
-    # A reproduced result needs every assertion to pass: a
-    # confirmation with a failing assertion is not a
-    # confirmation.
-    if status == "reproduced" and not all(
+    # A reproduced result needs at least one passing assertion:
+    # a confirmation with no passing evidence is not a
+    # confirmation. But not every assertion must pass: the SQLi
+    # oracle reproduces on 2 of 3 signals, so one failed
+    # assertion alongside passing ones is a valid reproduced
+    # result. A result with only failing assertions is invalid.
+    if status == "reproduced" and not any(
         a["passed"] for a in clean_assertions
     ):
         return None
@@ -369,4 +370,98 @@ def norm_verification_result(result):
         "patch_passed": patch_passed,
         "warning": warning,
         "poc": poc,
+    }
+
+
+# --- Findings store status transitions, Phase A2 (v0.5.0) ---------
+# Finding status values, exact: new, triaged, verified, confirmed,
+# false_positive, suppressed, fixed. Moves only forward through
+# new -> triaged -> verified -> confirmed -> fixed, except
+# false_positive and suppressed can move back to triaged when a
+# new scan finds the same code again. Any status can move to
+# false_positive or suppressed (suppressed is further guarded by
+# the disclosure-worthy check in store.update_finding_status).
+# confirmed needs a reproduced verification result; a status
+# change that skips a state, for example new to confirmed, is
+# refused. A model verdict alone never satisfies the
+# verification requirement.
+
+FINDING_STATUSES = [
+    "new",
+    "triaged",
+    "verified",
+    "confirmed",
+    "false_positive",
+    "suppressed",
+    "fixed",
+]
+
+_FORWARD_ORDER = {"new": 0, "triaged": 1, "verified": 2, "confirmed": 3,
+                  "fixed": 4}
+
+BUSINESS_IMPACT_LABELS = ["Urgent", "High", "Moderate", "Low",
+                          "Not assessed"]
+
+
+def validate_status_transition(current, target, has_verification=False):
+    """Check one finding status change.
+
+    Returns (True, None) when the move is allowed, or
+    (False, error message) when it is refused. has_verification
+    is true only when a verification result with status
+    reproduced exists for the finding.
+    """
+    if target not in FINDING_STATUSES:
+        return False, "unknown finding status %r" % (target,)
+    if current not in FINDING_STATUSES:
+        return False, "unknown current finding status %r" % (current,)
+    if current == target:
+        return True, None
+    if current == "fixed":
+        return False, (
+            "finding is fixed, its status is final and cannot move"
+        )
+    if target in ("false_positive", "suppressed"):
+        return True, None
+    if current in ("false_positive", "suppressed"):
+        if target == "triaged":
+            return True, None
+        return False, (
+            "finding is %s and can only move back to triaged, "
+            "not to %s" % (current, target)
+        )
+    if target == "confirmed" and not has_verification:
+        return False, (
+            "finding cannot move to confirmed without a "
+            "verification result with status reproduced. An LLM "
+            "verdict alone cannot set confirmation."
+        )
+    if _FORWARD_ORDER.get(target, 99) != _FORWARD_ORDER.get(current, -1) + 1:
+        return False, (
+            "finding cannot skip from %s to %s. Statuses move "
+            "one step at a time: new, triaged, verified, "
+            "confirmed, fixed." % (current, target)
+        )
+    return True, None
+
+
+def norm_business_impact(value):
+    """Validate a business impact object. Returns a clean dict,
+    or None. Business impact is operator-editable and changes
+    business impact only, never technical severity, verification,
+    review gates, or patch permissions."""
+    if not isinstance(value, dict):
+        return None
+    label = value.get("label")
+    if label is None:
+        label = "Not assessed"
+    label = str(label).strip()
+    if label not in BUSINESS_IMPACT_LABELS:
+        return None
+    return {
+        "label": label,
+        "affected_customers": str(value.get("affected_customers") or "")[:500],
+        "affected_services": str(value.get("affected_services") or "")[:500],
+        "affected_data": str(value.get("affected_data") or "")[:500],
+        "rationale": str(value.get("rationale") or "")[:1000],
     }
