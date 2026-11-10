@@ -33,9 +33,12 @@ as the same finding triaged there.
   exists, returns found false and invents nothing. When a model
   is named, GMI writes one plain-language paragraph from the
   retrieved advisory only.
+- `draft_private_disclosure`: draft a private disclosure from a
+  confirmed real finding, in the GitHub Security Lab report
+  template. Returns Markdown, writes it only when the caller gives
+  a path. Never sent, never opened as a PR, never forked, never
+  pushed, never emailed. `sent` is always false.
 - `estimate_cost`: estimate a run with no API call and no spend.
-
-Planned, not built yet: `draft_private_disclosure`. See DECISIONS.md.
 
 ## Quick start
 
@@ -225,6 +228,38 @@ example text in this repo says upgrade to 2.17.1 or later, which
 is the recommended version covering the whole Log4Shell family,
 not the fixed version the advisory records for this CVE.
 
+### draft_private_disclosure
+
+Input: `finding`, required, a validated finding object from
+`triage_semgrep_finding` or `repo_scan`; `repo`, required,
+owner/repo or a local path; `maintainer_contact`, optional, only
+if the user supplied it; `include_fix`, default true;
+`confirm_low_confidence`, default false; `write_path`, optional.
+
+The draft follows the GitHub Security Lab report template:
+summary, product, tested version, details, proof, impact,
+remediation, a request for a private GitHub Security Advisory,
+credit, contact, and disclosure policy, with a 90-day coordinated
+disclosure deadline. The worked example is the ssh-mcp-server
+host-key finding: missing SSH host key verification, no
+hostVerifier, known_hosts never consulted, version 1.11.0.
+
+Refusals: the verdict must be `real`, and confidence must be 0.8
+or above unless the caller confirms with
+`confirm_low_confidence`. A false positive, an unparsed finding,
+or a low-confidence finding without confirmation is refused, with
+no draft produced. Nothing is invented: version, location, proof,
+and impact come from the finding when supplied and are marked as
+not supplied when they are not.
+
+Output: `draft_markdown`, `written_to` or null, `sent` always
+false, and `next_steps`: Private Vulnerability Reporting needs a
+GitHub sign-in, a public issue needs approval for that exact
+destination, and a public PR discloses the flaw, so private
+disclosure comes first. The draft is written only when the caller
+gives `write_path`. It is never sent, never opened as a PR, never
+forked, never pushed, never emailed.
+
 ### estimate_cost
 
 Input: `model`, `text_length_chars`, `max_tokens` (default 2500),
@@ -247,7 +282,13 @@ pre-selected. Every tool that needs a model refuses until the caller
 names one. Reasoning-heavy models (DeepSeek, thinking, R1,
 reasoning) can spend their whole completion budget thinking and
 return no JSON, so they are a poor pick for large inputs. That
-warning is recorded in the code, not hidden.
+warning is recorded in the code, not hidden. Qwen/Qwen3.8-Flash
+carries no reasoning marker in its id, but it was observed
+returning 3,566 reasoning tokens and taking 53 seconds on one
+small finding in November 2026, so it is treated as a
+reasoning-heavy model too, and it warns at any input size. Other
+Qwen3 instruct models show 0 reasoning tokens in the benchmark
+runs and are not treated that way.
 
 ## How it works
 
@@ -283,6 +324,11 @@ Real costs from live testing of the same prompts in the audit tool:
   cannot return it. That is a scanner gap, recorded, not a pass.
 - `explain_cve` on CVE-2021-44228 with Gemini 3.5 Flash Lite:
   $0.0010385.
+- The 50-finding dataset through this server with Gemini 3.5 Flash
+  Lite: 48 of 50 correct, accuracy 0.960, precision 1.000, recall
+  0.920, 0 unparsed, $0.0117599. The 12 examples re-run in the same
+  phase: 9 of 12, then 10 of 12 on a second run, 0 unparsed,
+  about $0.0035 each run.
 
 Every tool response includes the estimate made before the call and
 the actual cost from API usage, so the agent can show what a run
@@ -300,7 +346,10 @@ tool call. It cannot be raised above $5.00.
   GitHub token.
 - Secrets are redacted before any API call. A snippet containing a
   value shaped like a key, token, or password has it replaced with
-  `[REDACTED]`, and the result notes that.
+  `[REDACTED]`, and the result notes that. The disclosure draft is
+  redacted the same way before it is returned or written.
+- A disclosure draft is never sent by this server. `sent` is always
+  false, and no tool here forks, pushes, opens a PR, or emails.
 - The server is local only. No network listener, no port, no
   database, no background daemon. It starts when the client starts
   it and exits when the client closes stdio.
@@ -320,6 +369,10 @@ tool call. It cannot be raised above $5.00.
   inventing a price.
 - Editor coverage is untested in this phase. See the quick start
   note above.
+- A disclosure draft is a draft. It was not sent, and sending it,
+  opening a public issue, or opening a PR with the fix all need the
+  user's approval for that exact destination. A public PR discloses
+  the flaw.
 - Semgrep rules miss some flaws. The ssh-mcp-server host-key
   finding is a missing-logic flaw no semgrep rule covers, so
   repo_scan does not return it. A clean repo_scan means no
@@ -344,6 +397,7 @@ Run them through the live server with:
 
 ```bash
 python3 scripts/run-12-examples.py
+python3 scripts/run-dataset-50.py
 ```
 
 That script needs `GMI_API_KEY` set and spends under $0.02 with
@@ -376,7 +430,7 @@ gmi-security-mcp/
   DATA_SOURCES.md
   pyproject.toml
   src/gmi_security_mcp/
-    server.py      stdio MCP server, the five tools
+    server.py      stdio MCP server, the six tools
     gmi.py         GMI client, timeout, retry, cost from usage
     prompts.py     TRIAGE_PROMPT, REPO_PROMPT, SYSTEM_ROLE, verbatim
     validate.py    balanced JSON extraction, verdict validation
@@ -387,11 +441,14 @@ gmi-security-mcp/
     osv.py         OSV API lookup, advisory summary, scanner parsing
     cvss.py        CVSS 3.1 base score from a vector string
     report.py      repo_scan JSON and Markdown report output
+    disclosure.py  private disclosure draft, Security Lab template
   tests/
     test_validate.py
     test_cost_redact.py
     test_server_logic.py
     test_triage_retry.py
+    test_disclosure.py
+    test_hardening.py
     test_cvss.py
     test_lockfiles.py
     test_osv.py
@@ -400,6 +457,7 @@ gmi-security-mcp/
     fixtures/      small lockfiles for the parser tests
   scripts/
     run-12-examples.py   live test, 12 examples, real GMI calls
+    run-dataset-50.py    live test, 50-finding dataset, real GMI calls
     run-repo-scan.py     live test, repo_scan, real GMI calls
     run-osv-check.py     live test, OSV tools, real GMI calls for explain
   models-82.json   pricing, 82 entries, 81 unique ids

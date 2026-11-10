@@ -248,23 +248,29 @@ def find_lockfiles(repo_path):
 def read_snippet(repo_path, rel_file, line, context_lines=25, max_chars=8000):
     """Code around a finding line, bounded by lines and characters.
 
-    Returns None when the file cannot be read. The snippet is the
-    lines from (line - context) to (line + context), cut to
-    max_chars, so a large file is never sent whole to GMI.
+    Returns None when the file cannot be read. Only the lines from
+    (line - context) to (line + context) are read, so a large file
+    is never loaded whole or sent whole to GMI. repo_scan also
+    skips files over the per-file cap before this is called.
     """
-    try:
-        text = (Path(repo_path) / rel_file).read_text(errors="replace")
-    except (OSError, ValueError):
-        return None
-    lines = text.splitlines()
     try:
         number = int(line)
     except (TypeError, ValueError):
         number = 1
     start = max(0, number - 1 - context_lines)
-    end = min(len(lines), number + context_lines)
-    snippet = "\n".join(lines[start:end])
-    return snippet[:max_chars]
+    end = number + context_lines
+    wanted = []
+    try:
+        with open(Path(repo_path) / rel_file, errors="replace") as handle:
+            for index, text_line in enumerate(handle):
+                if index < start:
+                    continue
+                if index >= end:
+                    break
+                wanted.append(text_line.rstrip("\n"))
+    except (OSError, ValueError):
+        return None
+    return "\n".join(wanted)[:max_chars]
 
 
 def run_osv_scanner(lockfile_path, timeout=OSV_TIMEOUT_SECONDS,

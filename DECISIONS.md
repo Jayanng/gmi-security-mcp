@@ -186,6 +186,68 @@ check_osv_advisory acceptance run was therefore done on the
 bug-bounty machine. Users run the server on their own machines,
 where the OSV API is reachable.
 
+## 11. Disclosure drafting, Phase 4, 2026-11-10
+
+Template: the GitHub Security Lab report template, verified live
+2026-11-10 at
+https://github.com/github/securitylab/blob/main/docs/report-template.md
+(summary, product, tested version, details, PoC, impact,
+remediation, private Security Advisory request, credit, contact,
+disclosure policy with a 90-day deadline). The ssh-mcp-server
+host-key draft is the worked example of that structure filled in.
+Nothing is invented: version, location, proof, and impact come
+from the finding object when supplied and are marked as not
+supplied when they are not. Core fields (verdict, severity,
+confidence, reason, fix, check, line) pass through
+validate.norm_finding, so the severity allowlist and exact-verdict
+rule apply to drafts too. The draft text is redacted before it is
+returned or written. `sent` is always false; no network call is
+made by the tool.
+
+## 12. Qwen 3.8 Flash is a reasoning model in practice, Phase 5, 2026-11-10
+
+Evidence, 2026-11-10, repo_scan on classfang/ssh-mcp-server:
+Stage 2 Qwen/Qwen3.8-Flash returned 3,566 reasoning tokens and
+took 53 s on one small finding, costing $0.002231 for that
+finding alone. Its id carries no reasoning marker, so the
+regex (deepseek|thinking|R1|reasoning) did not match it. Fix:
+gmi.is_reasoning_model now also matches an explicit set of
+models observed returning reasoning tokens, currently only
+Qwen/Qwen3.8-Flash, and the warning fires at any input size for
+those models, because the slowness showed up on a small input.
+Other Qwen3 instruct models show 0 reasoning tokens in the
+benchmark runs and are not in the set. A model is added to the
+set only with observed reasoning-token evidence, never on a
+guess. As a reasoning model it also gets no single-stage unparsed
+retry, the same rule as DeepSeek.
+
+## 13. Internal audit F1-F8 applied, Phase 5, 2026-11-10
+
+Mapped to this server, see AUDIT-2026-11-10-phase45.md
+(workspace only, not in the public repo):
+- F1 severity allowlist in both parsers: parse_triage and
+  norm_finding both allowlist severity and exact-match the
+  verdict. norm_finding now has a production use: disclosure
+  drafts validate their core fields through it.
+- F2 JSZip CDN: not applicable, no JavaScript, no CDN, no
+  browser code in this repo.
+- F3 CSP and frame headers: not applicable, no web server, no
+  HTTP endpoint, stdio only.
+- F4 POST retry: gmi.chat retries once on timeout only, as the
+  plan requires (120 s, then 300 s). Residual risk is recorded:
+  a POST that reached the API and then timed out on the response
+  could be billed twice. Triage reports the cost of a timed-out
+  attempt as unknown, not zero.
+- F5 size caps before reading: triage code cap 40,000 chars and
+  repo_scan file and snippet caps were already in place.
+  read_snippet now streams only the wanted lines instead of
+  loading the whole file first.
+- F6 balanced JSON plus exact verdict match: validate.py, tested.
+- F7 unpriced model refusal: cost.py and all tools, tested.
+- F8 system role plus field validation: prompts.py SYSTEM_ROLE,
+  `---` delimiters, and validate.py. Prompt-injection test added
+  in tests/test_hardening.py.
+
 ## Open items
 
 - Registry publish (Phase 7): needs a PyPI release first.

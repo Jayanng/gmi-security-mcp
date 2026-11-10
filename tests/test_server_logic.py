@@ -242,6 +242,9 @@ def test_secret_in_code_is_redacted_and_noted():
     assert result["redaction_count"] >= 1
     assert "AKIAIOSFODNN7EXAMPLE" not in seen["user"]
     assert "[REDACTED]" in seen["user"]
+    # The model is told a redaction happened, so a hardcoded-secret
+    # finding keeps its evidence without revealing the value.
+    assert "were replaced with [REDACTED]" in seen["user"]
 
 
 def test_estimate_cost_tool_no_key_needed():

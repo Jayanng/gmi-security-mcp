@@ -50,6 +50,13 @@ def normalise_advisory_id(advisory_id):
 
 
 def _default_fetch(url, timeout=30):
+    # The URL host here is the constant OSV_API_BASE; the only
+    # variable part is the advisory id, validated by
+    # normalise_advisory_id against a strict CVE/GHSA/OSV regex in
+    # fetch_advisory before this is called. No user-controlled host
+    # or path can reach this request. (Semgrep flags urlopen with a
+    # variable URL here; that is a false positive for this reason,
+    # recorded in the Phase 2-3 audit note.)
     request = urllib.request.Request(url, method="GET")
     request.add_header("Accept", "application/json")
     try:

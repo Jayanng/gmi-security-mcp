@@ -8,6 +8,9 @@ Phase 2 tool:
 Phase 3 tools:
   check_osv_advisory     - lockfile parse plus osv-scanner, advisories as facts
   explain_cve            - OSV/GHSA advisory by exact id, refuse when not found
+Phase 4 tool:
+  draft_private_disclosure - Markdown disclosure draft from a real
+    finding, drafts only, never sent, never PR, never fork, never push
 
 Rules enforced here, from the build plan:
 - No model is pre-selected. The caller must name the model.
@@ -38,6 +41,7 @@ from mcp.server import MCPServer
 
 from . import __version__
 from . import cost as cost_mod
+from . import disclosure as disclosure_mod
 from . import gmi as gmi_mod
 from . import lockfiles as lockfiles_mod
 from . import osv as osv_mod
@@ -96,10 +100,24 @@ def _error_result(message, **extra):
 
 
 def _reasoning_warning(model, prompt_tokens):
-    """Warning text when a reasoning-heavy model faces a large input."""
-    if model and gmi_mod.is_reasoning_model(model) and (
-        prompt_tokens or 0
-    ) > REASONING_WARN_PROMPT_TOKENS:
+    """Warning text when a reasoning-heavy model faces a large input.
+
+    Regex-matched reasoning models warn above 3,000 prompt tokens.
+    Models observed returning reasoning tokens despite an id with
+    no reasoning marker (Qwen/Qwen3.8-Flash, 3,566 reasoning tokens
+    and 53 s on one small finding, 2026-11-10) warn at any size,
+    because the slowness showed up on a small input too.
+    """
+    if not model or not gmi_mod.is_reasoning_model(model):
+        return None
+    if gmi_mod.is_known_reasoning_model(model):
+        return (
+            "Reasoning model %s: it was observed returning reasoning "
+            "tokens (3,566 tokens, 53 s) on a small finding, so expect "
+            "a slow reply, and no automatic retry runs for reasoning "
+            "models." % model
+        )
+    if (prompt_tokens or 0) > REASONING_WARN_PROMPT_TOKENS:
         return (
             "Reasoning model %s with about %d prompt tokens: it can "
             "spend its whole completion budget thinking and return no "
@@ -207,6 +225,19 @@ def triage_impl(
         combined = combined + "\n\nCode:\n" + code_text
 
     redacted_text, redaction_count, _hits = redact_mod.redact(combined)
+    if redaction_count > 0:
+        # Tell the model a redaction happened, without revealing the
+        # value. Without this note the model sees `API_KEY =
+        # '[REDACTED]'` and cannot tell a real hardcoded secret from
+        # a placeholder, so it triages hardcoded-secret findings as
+        # false positives. Measured 2026-11-10 on the 50-finding
+        # dataset: S10 and S11 failed that way before this note.
+        redacted_text += (
+            "\n\n[Note: %d secret-shaped value(s) in the code above "
+            "were replaced with [REDACTED] before this call. A "
+            "redacted value was present in the code shown.]"
+            % redaction_count
+        )
 
     estimate = cost_mod.estimate_cost(
         stage1_model, len(redacted_text), max_tokens, 1, pricing=prices
@@ -1276,6 +1307,36 @@ def explain_cve(
     return json.dumps(result, indent=2)
 
 
+@mcp.tool()
+def draft_private_disclosure(
+    finding: dict,
+    repo: str,
+    maintainer_contact: str | None = None,
+    include_fix: bool = True,
+    confirm_low_confidence: bool = False,
+    write_path: str | None = None,
+) -> str:
+    """Draft a private disclosure from a confirmed real finding.
+
+    Uses the GitHub Security Lab report template, with the
+    ssh-mcp-server host-key draft as the worked example of the
+    format. Refuses when the verdict is not real, or when confidence
+    is below 0.8 without explicit confirmation. Returns the draft
+    as Markdown and writes it only when write_path is given. It is
+    never sent, never opened as a PR, never forked, never pushed,
+    never emailed. sent is always false.
+    """
+    result = disclosure_mod.draft_private_disclosure_impl(
+        finding=finding,
+        repo=repo,
+        maintainer_contact=maintainer_contact,
+        include_fix=include_fix,
+        confirm_low_confidence=confirm_low_confidence,
+        write_path=write_path,
+    )
+    return json.dumps(result, indent=2)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="gmi-security-mcp",
@@ -1294,6 +1355,7 @@ def main(argv=None):
         print("repo_scan")
         print("check_osv_advisory")
         print("explain_cve")
+        print("draft_private_disclosure")
         print("estimate_cost")
         return 0
     mcp.run()

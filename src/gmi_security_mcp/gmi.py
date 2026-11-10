@@ -27,11 +27,31 @@ BROWSER_USER_AGENT = (
 )
 REASONING_MODEL_RE = re.compile(r"deepseek|thinking|\br1\b|reasoning", re.I)
 
+# Models whose id carries no reasoning marker but which were
+# observed returning reasoning tokens in live use. Evidence,
+# 2026-11-10, repo_scan on classfang/ssh-mcp-server: Stage 2
+# Qwen/Qwen3.8-Flash returned 3,566 reasoning tokens and took 53 s
+# on one small finding, costing $0.002231 for that finding alone.
+# The regex above does not match its id, so it is listed here by
+# exact id. Add a model here only with observed reasoning-token
+# evidence, never on a guess: Qwen3.5-27B and other Qwen3 instruct
+# models show 0 reasoning tokens in the benchmark runs.
+KNOWN_REASONING_BEHAVIOUR = frozenset({"qwen/qwen3.8-flash"})
+
 
 def is_reasoning_model(model_id):
     """True for reasoning-heavy models, which can spend their whole
     completion budget thinking and return no JSON."""
-    return bool(REASONING_MODEL_RE.search(str(model_id or "")))
+    text = str(model_id or "")
+    return bool(REASONING_MODEL_RE.search(text)) or (
+        text.lower() in KNOWN_REASONING_BEHAVIOUR
+    )
+
+
+def is_known_reasoning_model(model_id):
+    """True only for models observed returning reasoning tokens
+    despite an id with no reasoning marker."""
+    return str(model_id or "").lower() in KNOWN_REASONING_BEHAVIOUR
 
 
 def get_api_key():
