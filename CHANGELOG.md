@@ -6,6 +6,55 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.1] - 2026-11-10
+
+### Fixed
+
+- Triage now catches missing-verification flaws. The
+  ssh-mcp-server host-key finding (line 1710, custom rule)
+  triaged false_positive at 0.9 in v0.5.0 while the oracle
+  reproduced it. TRIAGE_PROMPT gains one narrow clause for
+  a complete configuration that omits a required
+  verification, and repo_scan now attaches a file-wide count
+  of the rule's absent verification fields as checked
+  evidence for triage. Live repo_scan now triages the
+  host-key finding real at 0.95, and verify with the fixture
+  PoC reproduces it with measured fingerprints, so the
+  finding is verified in the store. See DECISIONS.md
+  section 22.
+- Host-key oracle now enforces the same-format fingerprint
+  check its contract described: both fingerprints must
+  classify to the same kind (colon-hex, hex, or base64) and
+  length. A colon-hex fingerprint against a base64 string
+  no longer counts as a measured mismatch.
+- `explain_cve` no longer crashes the MCP call when the
+  OSV API returns an incomplete read. The fetch converts
+  transport and parse failures to a clean found-false
+  result with an error string.
+- Scope entries with a port (`example.com:443`) are now
+  refused plainly, without the misleading IPv6 message.
+- Generated PoCs no longer receive the absolute repo path
+  in the generation prompt; the prompt requires relative
+  paths only.
+- `_tool_json` guard now has a unit test (new
+  tests/test_mcp_test.py).
+
+### Live results, v0.5.1 fix pass
+
+- Dataset-50 live: 47/50, accuracy 0.940, precision 1.000,
+  recall 0.880, 0 unparsed, $0.0136399. Failures S10, S11,
+  S24, all real triaged false_positive.
+- Dataset-v2 live, first scored run: 53/56, accuracy
+  0.946, precision 1.000, recall 0.893, 0 unparsed,
+  $0.015404. Same three failures; all 6 new v2 items pass.
+- Repo_scan on ssh-mcp-server: 14 findings, 1 real
+  (host-key), 13 false_positive, $0.005954.
+- Muse agent-side test, all 15 tools over MCP stdio:
+  15/15 passed, $0.001867.
+- Fix-pass live total about $0.0494; cumulative with
+  v0.5.0 about $0.0769 of the $5.00 cap.
+- 278 unit tests pass.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
@@ -72,15 +121,12 @@ section.
 
 ### Known issues
 
-- Live triage misses missing-verification flaws: the
-  ssh-mcp-server host-key finding triaged false_positive at
-  confidence 0.9 in the v0.5.0 live run, while the host-key
-  oracle reproduced it under a regression check. The triage
-  prompt frames real as untrusted input reaching a dangerous
-  sink, and a missing-verification flaw is not a tainted
-  flow. A follow-up decision is needed before any prompt
-  change. See DECISIONS.md section 20 and
-  AUDIT-2026-11-10-phaseA3.md finding 1.
+- Live triage missed missing-verification flaws in v0.5.0:
+  the ssh-mcp-server host-key finding triaged false_positive
+  at confidence 0.9 while the host-key oracle reproduced it.
+  Fixed in 0.5.1: the prompt clause plus the absence
+  evidence now triage it real at 0.95, and verify confirms
+  it. See DECISIONS.md section 22.
 - `src/utils/ssh-config-parser.ts` line 222
   (non-literal-regexp) returned no valid JSON verdict from
   either stage in the v0.5.0 live scan. Recorded as an error,

@@ -74,11 +74,15 @@ passed 8/12, unparsed 0, total cost $0.003546
 1. That is the known state of the examples, not a broken install.
 The tools line in the output above is from the Phase 6 run, when
 the server had six tools; the current server lists fifteen.
-The four failures are the CVE-description examples (spring,
-apachepath, struts, xz), all judged false positive at confidence
-1.0 because the example text describes a CVE and shows no code
-sink. Earlier runs on the same examples passed 9, 10, and 9 of 12,
-so the count moves run to run on those four. The install is good
+The test uses `google/gemini-3.5-flash-lite` as its default
+model, but that default lives in the test script only: the
+server itself never pre-selects a model, and every tool call
+still needs a model named by the caller. The four failures
+are the CVE-description examples (spring, apachepath, struts,
+xz), all judged false positive at confidence 1.0 because the
+example text describes a CVE and shows no code sink. Earlier
+runs on the same examples passed 9, 10, and 9 of 12, so the
+count moves run to run on those four. The install is good
 when the server lists all fifteen tools and the test runs to a total
 cost under $0.02.
 
@@ -436,10 +440,20 @@ try:
         "connected": connected,
         "host_key_verified": False,
         "host_key_mismatch": connected and seen_fp != decoy_fp,
+        "seen_fingerprint": seen_fp,
+        "expected_fingerprint": decoy_fp,
     }))
 finally:
     stop()
 ```
+
+The evidence carries both fingerprints, in the same colon-hex
+format: the fingerprint the client actually saw, and the
+fingerprint of the freshly generated decoy key. The oracle
+requires both. A bare `host_key_mismatch` boolean is an
+assertion, not a measurement, and does not reproduce; the two
+fingerprints must also be in the same format, so a colon-hex
+fingerprint compared to a base64 string proves nothing.
 
 The PoC needs `hostkey_harness.py` in the same directory, so
 the call below uses a directory with the harness copied in.
@@ -465,7 +479,7 @@ That call returned:
     {
       "name": "wrong_host_key_connection_succeeded",
       "passed": true,
-      "detail": "connected to a test SSH server with a wrong host key and no verification"
+      "detail": "connected to a test SSH server with a wrong host key and no verification: seen fingerprint b9:4d:48:0e:a1:e8:3e:ed:bf:5f:f9:c3:1c:02:d1:f7 differs from the expected fingerprint 78:4a:a8:98:5f:9c:af:72:94:33:9b:c5:58:e5:13:9c"
     }
   ],
   "poc_before": {
@@ -485,7 +499,8 @@ That call returned:
 
 `status` is `reproduced` and `confirmed` is true, because the
 oracle saw the connection succeed with a wrong, unverified
-host key. The PoC output hash matches the Phase A1 live run
+host key, proved by the two measured fingerprints in the same
+format. The PoC output hash matches the Phase A1 live run
 exactly, so the same evidence reproduced. The warning is real:
 the PoC ran on the host. Review a generated PoC before running
 it, and use the Docker executor when Docker is installed.
@@ -495,7 +510,9 @@ triaged false_positive at confidence 0.9, so `verify_finding`
 refused a confirmation run for it by design. The oracle ran
 as a regression check instead and reproduced, with `confirmed`
 false. A regression check records oracle evidence without
-overriding the triage verdict. See the Limitations section in
+overriding the triage verdict. In the v0.5.1 fix pass the same
+finding triages real at 0.95, so the confirmation run above is
+the normal path now. See the Limitations section in
 the README.
 
 ## 10. List findings
@@ -542,8 +559,18 @@ python3 scripts/call-tool.py list_findings '{"limit": 5}'
 The first finding is the host-key finding from the v0.5.0 live
 scan, triaged false_positive. The list is summaries only, no
 code. Four more findings follow in the real output, left out
-here. Total 75 stored findings: 61 from the Phase A1 and A2
-live runs plus 14 from the Phase A3 live scan.
+here. Total 75 stored findings at that point: 61 from the
+Phase A1 and A2 live runs plus 14 from the Phase A3 live scan.
+
+In the v0.5.1 fix pass the same finding was re-triaged real
+at 0.95 and verified, so its stored row now reads verdict
+real, severity high, confidence 0.95, status verified,
+updated 2026-11-10T10:59:23.234583+00:00. The store keeps the
+history: three verdict rows (false_positive, false_positive,
+real) and five verification rows (skipped, reproduced as a
+regression check, skipped, error from a buggy generated PoC,
+reproduced as a confirmation). The fix-pass dataset-v2 live
+run added 6 new findings, so the total is now 81.
 
 `get_finding` returns one finding in full, with its history:
 
@@ -553,14 +580,16 @@ python3 scripts/call-tool.py get_finding '{"finding_id": "fnd_758e44abf1d74cb8"}
 
 The result carries the code snippet, the evidence
 (`rule_id` custom.ssh-missing-host-key-verification, `source`
-custom-rule), one verdict row (false_positive, stage1,
-$0.0003815, 680 prompt tokens, 71 completion tokens), two
-verification rows (one `skipped`, the PoC generation step,
-$0.0008124; one `reproduced`, the oracle run, $0.00), and
-three pipeline events (created, verification skipped,
-verification reproduced). The finding stays `triaged` with
-verdict false_positive: the regression check reproduced the
-flaw but does not override the triage verdict.
+custom-rule), three verdict rows (false_positive, stage1, from
+the v0.5.0 scan; false_positive, stage1, from the fix-pass
+prompt-clause-only run; real, stage1, from the fix-pass run
+with the absence evidence), and five verification rows (`skipped`, `reproduced` as the
+v0.5.0 regression check, `skipped`, `error` from the buggy
+generated PoC in the fix pass, `reproduced` as the fixture
+PoC confirmation). The finding is now `verified` with verdict
+real: the confirmation reproduced the flaw and moved the
+finding, unlike the regression check, which records oracle
+evidence without overriding the triage verdict.
 
 ## 11. Run the custom rules
 
@@ -584,28 +613,31 @@ cost: actual $0.000000, estimate typical $0.022195600000000003, max $0.179695599
 ```
 
 14 findings: 13 from the default config and 1 from the custom
-pack. Then the live run, same command without `--dry-run`:
+pack. Then the live run, same command without `--dry-run`.
+The output below is the v0.5.1 fix-pass run, which triages
+the host-key finding real:
 
 ```text
 repo: /home/hatch/workspace/gmi-clouder/.scratch/ssh-mcp-server
-findings: total 14, triaged 14, real 0, false_positive 13, no_verdict 1
+findings: total 14, triaged 14, real 1, false_positive 13, no_verdict 0
 skipped: 0
-  src/cli/command-line-parser.ts:679 Path traversal false_positive conf 0.9 stage stage1 $0.000401
-  src/services/ssh-connection-manager.ts:1710 Missing SSH host key verification false_positive conf 0.9 stage stage1 $0.000382
+  src/cli/command-line-parser.ts:679 Path traversal false_positive conf 0.9 stage stage1 $0.000431
+  src/services/ssh-connection-manager.ts:1710 Missing SSH host key verification real conf 0.95 stage stage1 $0.000442
 osv package.json: 0 packages, 0 vulnerable, error=None
-cost: actual $0.005798, estimate typical $0.022195600000000003, max $0.17969559999999998, stopped_early=False (None)
-error: src/utils/ssh-config-parser.ts:222 triage failed: Unparsed, no verdict, this finding is NOT clean. Stage 1 and Stage 2 both returned no valid JSON verdict.
+cost: actual $0.005954, estimate typical $0.022195600000000003, max $0.17969559999999998, stopped_early=False (None)
 ```
 
 Eleven more findings are in the real output, left out here.
 The host-key finding at line 1710 is the custom-rule finding:
 `source: custom-rule`, rule
 `custom.ssh-missing-host-key-verification`, stored as
-`fnd_758e44abf1d74cb8`. It triaged false_positive at confidence
-0.9, which is the known v0.5.0 triage miss for
-missing-verification flaws, recorded in the README
-Limitations. The no-verdict finding at line 222 is recorded
-as an error, not clean. Actual cost $0.005798, inside the
+`fnd_758e44abf1d74cb8`. In v0.5.0 it triaged false_positive at
+confidence 0.9, the known triage miss for
+missing-verification flaws. In v0.5.1 the prompt clause plus
+the absence evidence (hostVerifier, knownHosts,
+trustedHostKey occur 0 times in the file) triage it real at
+0.95, and the line 222 finding that returned no verdict in
+v0.5.0 now gets a verdict. Actual cost $0.005954, inside the
 typical estimate of $0.0221956.
 
 List the pack itself, no GMI call:

@@ -799,6 +799,123 @@ Decisions:
   Live-run and tutorial scripts now live in
   ~/workspace/gmi-clouder/.scratch/, not /tmp.
 
+## 22. Fix pass after v0.5.0, 2026-11-10
+
+Fixes every open item from the v0.5.0 audits and the A3
+acceptance miss, then an internal audit of the changed code,
+then the audit fixes. Version 0.5.1, patch: every change is
+a bug fix, no new tools, no new API surface, no signature
+changes. The host-key oracle now enforces the same-format
+fingerprint check its contract already described; that is a
+correctness fix to a documented contract, not a new contract.
+
+- P0, A3 acceptance: the custom host-key rule found the
+  ssh-mcp-server finding at line 1710, but v0.5.0 triage
+  called it false_positive at 0.9 while the oracle
+  reproduced it. Fixed in two parts. First, TRIAGE_PROMPT
+  gains one narrow missing-verification clause: a finding is
+  also real when the code shown is the complete
+  configuration or setup for a security-sensitive operation
+  and it omits a required verification with no equivalent
+  check in the code shown. This is the deliberate exception
+  to the do-not-reword rule, decided here, not a quiet edit.
+  Second, repo_scan now attaches factual absence evidence
+  for custom-rule findings: new `count_field_occurrences`
+  in scanners.py counts the rule's `absence_fields` in the
+  finding's file (hostVerifier, knownHosts, trustedHostKey
+  for the host-key rule) and appends the count to the
+  finding text sent to triage, labelled as checked evidence,
+  not a model claim. The prompt clause alone did not flip
+  the live finding (repo_scan 1: still false_positive,
+  0.8); the clause plus the evidence did (repo_scan 2: real,
+  0.95). The 50-line snippet cannot show whether a
+  verification is set later in a 200-line function; the
+  file-wide count answers exactly that.
+- Live results, google/gemini-3.5-flash-lite Stage 1 only.
+  Dataset-50: 47/50, accuracy 0.940, precision 1.000,
+  recall 0.880, 0 unparsed, $0.0136399. Failures are S10,
+  S11, S24, all real triaged false_positive; S10 and S24
+  also failed in v0.5.0 Phase A2, S11 is a known
+  flip-flopper. One below the 48/50 bar, recorded honestly,
+  not re-run to chase a better number. Dataset-v2, first
+  live score: 53/56, accuracy 0.946, precision 1.000,
+  recall 0.893, 0 unparsed, $0.015404; same three failures,
+  all 6 new v2 items pass. MockLLM floors first, $0.00:
+  dataset-50 51/51, dataset-v2 57/57, evidence run 14
+  findings with 1 real (host-key). Repo_scan on
+  ssh-mcp-server: 14 findings, 1 real (host-key,
+  fnd_758e44abf1d74cb8), 13 false_positive, $0.005954.
+  Verify of the host-key finding with the fixture PoC:
+  reproduced, confirmed true, $0.00 GMI, measured
+  fingerprints b9:4d:...:d1:f7 vs 78:4a:...:13:9c. The
+  finding is verified in the default store.
+- P1: scope port entry `example.com:443` is now refused
+  plainly ("scope entries do not include ports ... use
+  'example.com' without the port"), no IPv6 mention. Other
+  colon forms still get the IPv6 refusal. Host-key PoC now
+  measures the mismatch: oracle_host_key requires both
+  fingerprints present, different, and in the same format.
+  Generated PoCs no longer get the absolute repo path in
+  the generation prompt and the prompt forbids absolute and
+  temporary paths; the fix-pass generated PoC had no
+  absolute sys.path and no hardcoded temp dir.
+- Left open from v0.4.0: `_tool_json` guard now has a unit
+  test (new tests/test_mcp_test.py, 6 tests). The test also
+  asserts the mcp-test default model lives in the test
+  script only. The setuptools SPDX license form was already
+  in v0.5.0 and the rebuild shows no deprecation warning.
+  osv-scanner re-tested on this VM 2026-11-10: 2-package
+  requirements file succeeded in 14.6s; the earlier POST
+  timeout did not reproduce this pass. Cursor still not
+  tested (desktop GUI, not on this VM). Claude Code and
+  Codex not tested as agents; agent-side testing was done
+  through Muse instead, see below.
+- Agent-side testing, Muse: this Muse agent drove the MCP
+  stdio server with a ClientSession and called all 15 tools
+  (tools/list, estimate_cost, 3 triages, list/get/update
+  findings, verify with the SQLi fixture PoC reproduced and
+  confirmed, mark_confirmed, mark_fp, repo_scan, osv,
+  explain_cve, draft disclosure sent false, list_rules,
+  scope_enable/disable). 15/15 passed, $0.001867. The temp
+  repo_scan found 3 real findings on a one-vulnerability
+  repo: the intended SQLi plus two rule hits on the SQLi
+  harness line, which is dedup by (rule_id, file, line) by
+  design. Only Muse is claimed, by this method.
+- Models re-checked live 2026-11-10: 73 models, 73 unique,
+  no removals, no additions, pricing unchanged, Ripple
+  still unpriced. Recorded in DATA_SOURCES.md.
+- Internal audit of the changed code (report workspace-only,
+  AUDIT-2026-11-10-post-v050.md, never pushed): semgrep
+  71 hits (69 fixtures, 1 known osv.py false positive,
+  1 test sentinel), trufflehog 0 verified and 0 unverified,
+  osv-scanner 111 fixture vulns (all intentionally old
+  versions; 113 in v0.5.0, delta is OSV data drift),
+  production deps mcp 2.3.0 and PyYAML 6.0.3 with 0 vulns
+  by direct OSV query. Two real issues found and fixed in
+  this pass: (A1) the host-key oracle claimed same-format
+  fingerprints but never checked the format, fixed with
+  `_fingerprint_format` and 3 tests; (A2) explain_cve
+  crashed the MCP call on an IncompleteRead from the OSV
+  API, fixed by catching http.client.HTTPException, OSError,
+  and ValueError in `_default_fetch` and 2 tests. The
+  agent-side test is what found A2. Full unit suite after
+  all fixes: 278 passed, 0 failed.
+- Spend, fix pass: live GMI about $0.0494 (dataset-50 $0.0136399,
+  repo_scan 1 $0.005872, repo_scan 2 $0.005954, verify PoC
+  generation $0.001190, dataset-v2 $0.015404, agent-side
+  runs $0.0008 estimated for the first crashed run plus
+  $0.000837 and $0.001867, mcp-test 12 examples $0.003798).
+  Cumulative with v0.5.0 $0.0275547: about $0.0769 of the
+  $5.00 cap. No live spend in the push step. mcp-test on
+  0.5.1: 8/12, the same four CVE-description failures as
+  Phase 6, 0 unparsed.
+- Version 0.5.1 everywhere: pyproject.toml, __init__.py
+  __version__, server.json (package version and top-level
+  version), README, CHANGELOG.md. server.json re-validated
+  with mcp-publisher validate. Rebuilt with
+  `python -m build`, `twine check` passed, fresh-venv
+  install lists 15 tools.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and
@@ -807,15 +924,17 @@ Decisions:
   device-flow login. See section 17 for the exact next steps.
 - Disclosure drafting (Phase 4): build the tool from the template
   chosen here.
-- Phase A3 triage miss (Medium): the triage prompt frames real
-  as a tainted flow, so missing-verification flaws such as the
-  ssh-mcp-server host-key finding triage false_positive while
-  the oracle reproduces them. Follow-up decision needed on a
-  missing-verification clause in the triage prompt, tested
-  against the 50-finding dataset before it ships. The prompt
-  carries a do-not-reword instruction, so this needs a
-  deliberate decision, not a quiet edit. See section 20 and
-  AUDIT-2026-11-10-phaseA3.md finding 1.
-- Phase A3 scope nit (Low): a scope file entry with a port
-  (example.com:443) is refused with an IPv6 message. Misleading
-  text, fail-closed. See AUDIT-2026-11-10-phaseA3.md finding 2.
+- Generated PoC quality: the fix-pass live verify run generated
+  a PoC with a bug (it unpacked None and exited 1 before the
+  fallback ran). Model output, not server code; PoCs are
+  reviewed before they run, by design. No server fix in 0.5.1.
+- `count_field_occurrences` does not validate the finding's
+  file path against traversal; the source is semgrep output
+  for a user-chosen repo and the only effect is a count in a
+  prompt. Noted in the post-v0.5.0 internal audit, finding
+  A7, no fix in 0.5.1.
+- Dataset-50 sits at 47/50 live (S10, S11, S24 fail, all real
+  triaged false_positive). S11 flips between runs. No further
+  prompt change is planned without a dataset-tested cause;
+  the missing-verification clause is not the cause, it
+  mentions no secret or password language.

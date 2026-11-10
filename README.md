@@ -12,6 +12,23 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.1
+
+- Triage now catches missing-verification flaws. The
+  ssh-mcp-server host-key finding (line 1710, custom rule)
+  triaged false_positive at 0.9 in v0.5.0 while the oracle
+  reproduced it. A narrow missing-verification clause in the
+  triage prompt plus a file-wide count of the absent
+  verification fields, attached as checked evidence, now
+  triage it real at 0.95, and verify confirms it with
+  measured fingerprints. See DECISIONS.md section 22.
+- The host-key oracle now enforces the same-format
+  fingerprint check its contract described.
+- `explain_cve` returns a clean error instead of crashing
+  the MCP call when the OSV API read fails.
+- Scope entries with a port are refused plainly, and
+  generated PoCs no longer receive the absolute repo path.
+
 ## What is new in 0.5.0
 
 - Verification: `verify_finding` proves a finding with a deterministic oracle and a runnable PoC. A model verdict alone never sets confirmation. See [Verification](#verification).
@@ -585,6 +602,10 @@ above $5.00.
 | `repo_scan` on Jayanng/gmi-benchmark, file cap raised to 200 KB, 2 findings triaged, both false positive | $0.001217 |
 | `repo_scan` on classfang/ssh-mcp-server, file cap raised to 100 KB, 13 findings triaged, all false positive | $0.006877 |
 | `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.0, file cap 200 KB, 14 findings triaged (13 default + 1 custom), 0 real, 13 false positive, 1 no verdict | $0.005798 |
+| `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.1 fix pass, 14 findings triaged, 1 real (host-key, 0.95), 13 false positive | $0.005954 |
+| The 50-finding dataset through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass: 47 of 50 correct, accuracy 0.940, precision 1.000, recall 0.880, 0 unparsed | $0.0136399 |
+| The 56-finding dataset-v2 through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass, first live score: 53 of 56 correct, accuracy 0.946, precision 1.000, recall 0.893, 0 unparsed | $0.015404 |
+| Muse agent-side test, all 15 tools over MCP stdio, v0.5.1 fix pass | $0.001867 |
 | `explain_cve` on CVE-2021-44228 with Gemini 3.5 Flash Lite | $0.0010385 |
 | The 50-finding dataset through this server, Gemini 3.5 Flash Lite: 48 of 50 correct, accuracy 0.960, precision 1.000, recall 0.920, 0 unparsed | $0.0117599 |
 | DeepSeek on run_benchmark.py, twice, no verdict either time | $0.008521 |
@@ -601,20 +622,18 @@ about $0.0004.
 
 `repo_scan` on classfang/ssh-mcp-server with the custom rules
 pack found the known host-key finding at line 1710 with
-`source: custom-rule`, but Gemini triaged it false positive at
-confidence 0.9. The triage prompt frames real as untrusted
-input reaching a dangerous sink, and a missing-verification
-flaw is not a tainted flow. The host-key oracle then
-reproduced it under a regression check, which records oracle
-evidence without overriding the triage verdict. The rule and
-the oracle are proven; the triage prompt is the weak link for
-missing-verification flaws. A clean repo_scan means no semgrep
-finding triaged real, not that the repo has no flaws.
+`source: custom-rule`. In v0.5.0 Gemini triaged it false
+positive at confidence 0.9, and the host-key oracle reproduced
+it under a regression check. In v0.5.1 the prompt clause plus
+the absence evidence triage it real at 0.95, and verify with
+the fixture PoC reproduces it with measured fingerprints, so
+the finding is verified in the store. A clean repo_scan means
+no semgrep finding triaged real, not that the repo has no flaws.
 
-Total build spend so far is $0.0782234 of a $5.00 budget
-(v0.4.0 $0.0506687 + v0.5.0 $0.0275547). See `SPEND.md` in the
-workspace for the per-run log. The spend log is not shipped in
-the repo.
+Total build spend so far is about $0.1276 of a $5.00 budget
+(v0.4.0 $0.0506687 + v0.5.0 $0.0275547 + v0.5.1 fix pass
+about $0.0494). See `SPEND.md` in the workspace for the
+per-run log. The spend log is not shipped in the repo.
 
 ## Privacy and security
 
@@ -649,13 +668,12 @@ the repo.
 - Unparsed is unparsed, not clean. A timeout is the same.
 - The model can be wrong. A verdict is a triage opinion on the code
   shown, not proof. A finding marked false positive on a short
-  snippet can still be real in the full repo. Live in v0.5.0: the
+  snippet can still be real in the full repo. Live in v0.5.0 the
   ssh-mcp-server host-key finding triaged false positive at
-  confidence 0.9 while the host-key oracle reproduced it. The
-  triage prompt frames real as a tainted flow, and a
-  missing-verification flaw is not one. A verified finding is
-  confirmed only for the PoC that ran, not for every way the flaw
-  could be reached.
+  confidence 0.9 while the host-key oracle reproduced it; fixed
+  in 0.5.1, which triages it real at 0.95 and verifies it. A
+  verified finding is confirmed only for the PoC that ran, not
+  for every way the flaw could be reached.
 - Oracles exist for 5 categories only: SQL injection, XSS, SSRF,
   path traversal, missing SSH host key verification. Other
   categories return `skipped`.
@@ -668,9 +686,11 @@ the repo.
   tested for registration and tools/list in Phase 6. Codex was
   re-tested in v0.5.0 with 15 tools. Claude Code could not be
   re-tested: the CLI is not installed on this VM. Cursor was
-  not tested, and no agent-side tool call was tested in any client
-  on the build machine, because it is not logged in to either
-  service.
+  not tested. Agent-side tool calls were tested through Muse
+  in the v0.5.1 fix pass: all 15 tools called over MCP stdio,
+  15/15 passed. No agent-side tool call was tested in Claude
+  Code, Codex, or Cursor on the build machine, because it is
+  not logged in to any of those services.
 - The 12 examples do not all pass every run. Phase 6 passed 8 of
   12, earlier runs 9 and 10 of 12, on description-only CVE
   examples the model judges strictly. Do not treat the example
@@ -690,12 +710,15 @@ the repo.
   it fetches vulnerability data; later runs use its cache and take
   seconds. On the build VM the osv-scanner POST times out, so
   lockfile checks run on the bug-bounty machine where the API is
-  reachable.
+  reachable. Re-tested on the build VM 2026-11-10 in the v0.5.1
+  fix pass: a 2-package requirements file succeeded in 14.6s,
+  so the timeout does not reproduce every run.
 - A fixed version is reported only when the advisory states one.
   Some advisories list only a last affected version.
-- The 50-finding dataset score (48 of 50) is one run on one model.
-  The 56-finding dataset-v2.json has not been run live in v0.5.0,
-  and no score is claimed on it.
+- The 50-finding dataset score (47 of 50 in the v0.5.1 fix pass,
+  48 of 50 in v0.5.0) is one run on one model. The 56-finding
+  dataset-v2.json was run live for the first time in the v0.5.1
+  fix pass: 53 of 56. Both scores are one run on one model.
 
 ## Repo structure
 

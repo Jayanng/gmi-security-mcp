@@ -34,6 +34,13 @@ reference it by that name, and the count in the name is not a
 guarantee: GMI rotates models, and the file is re-checked live
 before each release.
 
+Live re-check 2026-11-10, in the v0.5.1 fix pass: the live
+list still has 73 models, 73 unique, no removals, no
+additions, pricing unchanged on all 73 shared models.
+`gmicloud/Ripple-65B-Preview` still has no flat pricing (null)
+and is treated as unpriced. Both copies of the file were
+compared against the live list; no change was needed.
+
 A second copy lives at `src/gmi_security_mcp/models-80.json` so
 the installed package can read pricing. The two copies must be
 kept identical; the repo-root copy is the source of truth.
@@ -43,13 +50,22 @@ kept identical; the repo-root copy is the source of truth.
 Source: `~/workspace/gmi-clouder/security-benchmark-push/dataset.json`.
 50 findings, 25 real and 25 false positive, 14 categories. Not run
 through this server yet in Phase 1. No score is claimed on it until
-it is run.
+it is run. Live runs since: v0.5.0 Phase A2, 48/50, accuracy 0.960;
+v0.5.1 fix pass, 2026-11-10, google/gemini-3.5-flash-lite Stage 1
+only, 47/50, accuracy 0.940, precision 1.000, recall 0.880,
+0 unparsed, $0.0136399. Failures S10, S11, S24, all real triaged
+false_positive.
 
 ## dataset-v2.json
 
 Source: `~/workspace/gmi-clouder/security-benchmark-push/dataset-v2.json`.
-56 findings, 28 real and 28 false positive. Not run yet. No score
-is claimed on it until it is run.
+56 findings, 28 real and 28 false positive. First live run in
+the v0.5.1 fix pass, 2026-11-10, google/gemini-3.5-flash-lite
+Stage 1 only: 53 of 56 correct, accuracy 0.946, precision
+1.000, recall 0.893, 0 unparsed, $0.015404. Failures S10, S11,
+S24, all real triaged false_positive, the same three that fail
+on dataset.json. All 6 new v2 items (S26 to S28, F26 to F28)
+pass. MockLLM floor before the live run: 57/57.
 
 ## examples/
 
