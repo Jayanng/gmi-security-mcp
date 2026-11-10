@@ -11,6 +11,9 @@ Phase 3 tools:
 Phase 4 tool:
   draft_private_disclosure - Markdown disclosure draft from a real
     finding, drafts only, never sent, never PR, never fork, never push
+Phase A1 tool (v0.5.0):
+  verify_finding           - verify one finding with a deterministic
+    oracle, PoV-is-truth; GMI only writes the PoC
 
 Rules enforced here, from the build plan:
 - No model is pre-selected. The caller must name the model.
@@ -34,6 +37,7 @@ Rules enforced here, from the build plan:
 
 import argparse
 import json
+import shlex
 import sys
 from pathlib import Path
 
@@ -50,6 +54,7 @@ from . import redact as redact_mod
 from . import report as report_mod
 from . import scanners as scanners_mod
 from . import validate as validate_mod
+from . import verify as verify_mod
 
 MAX_CODE_CHARS = 40000
 ALLOWED_MAX_TOKENS = (800, 1200, 2500)
@@ -62,8 +67,10 @@ mcp = MCPServer(
     instructions=(
         "Security triage tools backed by GMI Inference. "
         "Triage one semgrep finding, scan a repo, check a lockfile "
-        "against OSV, or explain a CVE from its advisory. "
-        "No model is pre-selected."
+        "against OSV, explain a CVE from its advisory, verify a "
+        "finding with a deterministic oracle, or draft a "
+        "private disclosure. No model "
+        "is pre-selected."
     ),
 )
 
@@ -698,6 +705,7 @@ def repo_scan_impl(
             ],
         )
 
+
     try:
         raw_findings, semgrep_errors = scanners_mod.run_semgrep(
             root, configs, runner=semgrep_runner, binary=semgrep_binary
@@ -1239,8 +1247,7 @@ def repo_scan(
     totals, skipped findings with reasons, the OSV section, and the
     estimate versus actual cost. A dry run runs the scanners and
     estimates the cost with no GMI calls. Files over max_file_kb are
-    skipped unless the caller raises the cap.
-    """
+    skipped unless the caller raises the cap.    """
     result = repo_scan_impl(
         repo_path=repo_path,
         stage1_model=stage1_model,
@@ -1321,10 +1328,9 @@ def draft_private_disclosure(
     Uses the GitHub Security Lab report template, with the
     ssh-mcp-server host-key draft as the worked example of the
     format. Refuses when the verdict is not real, or when confidence
-    is below 0.8 without explicit confirmation. Returns the draft
-    as Markdown and writes it only when write_path is given. It is
-    never sent, never opened as a PR, never forked, never pushed,
-    never emailed. sent is always false.
+    is below 0.8 without explicit confirmation.    Returns the draft as Markdown and writes it only when
+    write_path is given. It is never sent, never opened as a PR,
+    never forked, never pushed, never emailed. sent is always false.
     """
     result = disclosure_mod.draft_private_disclosure_impl(
         finding=finding,
@@ -1333,6 +1339,671 @@ def draft_private_disclosure(
         include_fix=include_fix,
         confirm_low_confidence=confirm_low_confidence,
         write_path=write_path,
+    )
+    return json.dumps(result, indent=2)
+
+
+def _verify_result(**over):
+    """Build a VerificationResult dict and validate it.
+
+    Defaults are the empty result: status error, confirmed False,
+    no assertions, no artifacts, poc_before not run. Callers
+    override the fields they know. The schema rules (confirmed
+    only on reproduced, assertions non-empty on reproduced) are
+    enforced by validate.norm_verification_result, not here.
+    """
+    result = {
+        "finding_id": None,
+        "status": "error",
+        "confirmed": False,
+        "assertions": [],
+        "artifacts": [],
+        "poc_before": {
+            "command": None,
+            "exit_code": None,
+            "output_hash": None,
+            "ran": False,
+        },
+        "poc_after": None,
+        "model": None,
+        "usage": {},
+        "cost_usd": 0.0,
+        "estimate_usd": 0.0,
+        "unparsed": False,
+        "error": None,
+        "regression_check": False,
+        "patch_passed": None,
+        "warning": None,
+        "poc": None,
+    }
+    result.update(over)
+    clean = validate_mod.norm_verification_result(result)
+    if clean is None:
+        # Our own construction broke a schema rule. Return the raw
+        # result as an error rather than inventing a verdict.
+        result["status"] = "error"
+        result["confirmed"] = False
+        result["error"] = (
+            "internal error: verification result failed validation"
+        )
+        return result
+    return clean
+
+
+def _verify_error(message, **over):
+    return _verify_result(status="error", error=message, **over)
+
+
+def verify_impl(
+    finding=None,
+    finding_id=None,
+    repo_path=None,
+    poc=None,
+    test_command=None,
+    stage1_model=None,
+    spend_cap_usd=cost_mod.DEFAULT_SPEND_CAP_USD,
+    run_poc=False,
+    regression_check=False,
+    executor="host",
+    fix_candidate=None,
+    max_tokens=2500,
+    chat_fn=None,
+    pricing=None,
+    poc_timeout=verify_mod.POC_TIMEOUT_SECONDS,
+    code=None,
+):
+    """Verify one finding with a deterministic oracle, PoV-is-truth.
+
+    The oracle runs the PoC. GMI only writes the PoC, when poc is
+    null. A model verdict alone never sets confirmed: confirmed is
+    true only when the oracle reproduces the finding, and never on
+    a regression check. A PoC that was not run is skipped, a PoC
+    that ran and did not reproduce is not_reproduced, and a PoC
+    that timed out or could not run is error. A generated PoC is
+    untrusted code until reviewed: it is returned for review and
+    only runs when run_poc is true.
+    """
+    chat_fn = chat_fn or gmi_mod.chat
+
+    norm = validate_mod.norm_finding(finding) if finding is not None else None
+    if norm is None:
+        return _verify_error(
+            "finding is required and must have verdict real or "
+            "false_positive, with severity, confidence, reason, and fix",
+            finding_id=str(finding_id) if finding_id is not None else None,
+        )
+    if finding_id is not None:
+        finding_id = str(finding_id)
+    if norm["verdict"] == "false_positive" and not regression_check:
+        return _verify_error(
+            "Finding verdict is false_positive. verify_finding refuses "
+            "false positives. Pass regression_check true to verify it "
+            "as a regression check; the result is then labelled "
+            "regression, not confirmation.",
+            finding_id=finding_id,
+        )
+    category = verify_mod.category_for_check(norm["check"])
+    if category is None:
+        return _verify_result(
+            status="skipped",
+            error="no oracle for this category",
+            assertions=[
+                {
+                    "name": "oracle_available",
+                    "passed": False,
+                    "detail": "no oracle for this category",
+                }
+            ],
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    root = verify_mod.validate_repo_path(repo_path)
+    if root is None:
+        return _verify_error(
+            "repo_path is not an existing directory: %s" % repo_path,
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    if executor not in ("host", "docker"):
+        return _verify_error(
+            "executor must be host or docker, got %r" % (executor,),
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    if max_tokens not in ALLOWED_MAX_TOKENS:
+        return _verify_error(
+            "max_tokens must be one of 800, 1200, 2500, got %r"
+            % (max_tokens,),
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    try:
+        spend_cap_usd = float(spend_cap_usd)
+    except (TypeError, ValueError):
+        return _verify_error(
+            "spend_cap_usd must be a number",
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    if spend_cap_usd <= 0 or spend_cap_usd > cost_mod.MAX_SPEND_CAP_USD:
+        return _verify_error(
+            "spend_cap_usd must be above 0 and at most $%.2f"
+            % cost_mod.MAX_SPEND_CAP_USD,
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    if fix_candidate is not None:
+        if not isinstance(fix_candidate, dict):
+            return _verify_error(
+                "fix_candidate must be an object with path and content",
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        fix_path = fix_candidate.get("path")
+        fix_content = fix_candidate.get("content")
+        if not fix_path or not isinstance(fix_content, str):
+            return _verify_error(
+                "fix_candidate needs a repo-relative path and content",
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        try:
+            fix_target = (root / str(fix_path)).resolve()
+        except (OSError, RuntimeError):
+            return _verify_error(
+                "fix_candidate path cannot be resolved: %r" % (fix_path,),
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        if fix_target != root and root not in fix_target.parents:
+            return _verify_error(
+                "fix_candidate path escapes the repo, refused: %r"
+                % (fix_path,),
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        if not fix_target.is_file():
+            return _verify_error(
+                "fix_candidate path is not an existing file in the repo: %r"
+                % (fix_path,),
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+
+    # Validate test_command before any GMI call, so a bad command
+    # is refused without spending anything. The {poc} placeholder
+    # is substituted with the written PoC file path later.
+    raw_command = None
+    if test_command is not None:
+        try:
+            raw_command = shlex.split(str(test_command))
+        except ValueError as err:
+            return _verify_error(
+                "test_command could not be parsed: %s" % err,
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        command_error = verify_mod.validate_poc_command(raw_command, root)
+        if command_error:
+            return _verify_error(
+                command_error,
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+
+    # PoC generation, only when no PoC was supplied.
+    poc_text = poc
+    poc_language = "python"
+    model_used = None
+    usage = {}
+    cost_usd = 0.0
+    estimate_usd = 0.0
+    if poc_text is None and test_command is None:
+        if not stage1_model or not str(stage1_model).strip():
+            return _verify_error(
+                "stage1_model is required to generate a PoC. No model "
+                "is pre-selected, name the model to run, or supply poc.",
+                finding_id=finding_id,
+                regression_check=bool(regression_check),
+            )
+        prompt_text = (
+            "Category: %s\nCheck: %s\nSeverity: %s\nReason: %s\nFix: %s\n"
+            "Repo path: %s\n%s\n"
+            % (
+                category,
+                norm["check"],
+                norm["severity"],
+                norm["reason"],
+                norm["fix"],
+                str(root),
+                verify_mod.evidence_contract(category),
+            )
+        )
+        if code:
+            prompt_text += "\nCode:\n%s\n" % str(code)
+        redacted_text, redaction_count, _hits = redact_mod.redact(prompt_text)
+        if redaction_count > 0:
+            redacted_text += (
+                "\n\n[Note: %d secret-shaped value(s) in the finding above "
+                "were replaced with [REDACTED] before this call.]"
+                % redaction_count
+            )
+        prices = pricing if pricing is not None else cost_mod.load_pricing()
+        estimate = cost_mod.estimate_cost(
+            stage1_model, len(redacted_text), max_tokens, 1, pricing=prices
+        )
+        if not estimate["priced"]:
+            return _verify_error(
+                "Model %s has no flat per-token pricing, so its cost "
+                "cannot be estimated. Pick a priced model instead."
+                % stage1_model,
+                finding_id=finding_id,
+                estimate_usd=None,
+                regression_check=bool(regression_check),
+            )
+        estimate_usd = estimate["typical_usd"]
+        if estimate["max_usd"] is not None and estimate["max_usd"] > spend_cap_usd:
+            return _verify_error(
+                "Estimated maximum cost $%.6f exceeds the spend cap "
+                "$%.2f. Refusing to run. Lower max_tokens or raise "
+                "the cap." % (estimate["max_usd"], spend_cap_usd),
+                finding_id=finding_id,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+            )
+        if gmi_mod.get_api_key() is None:
+            return _verify_error(
+                "GMI_API_KEY is not set. Set it in the environment "
+                "before generating a PoC. The key is never read from "
+                "a file.",
+                finding_id=finding_id,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+            )
+        system = prompts_mod.system_content(prompts_mod.POC_PROMPT)
+        user = prompts_mod.wrap_user_text(redacted_text)
+        reply = chat_fn(
+            model=stage1_model,
+            system_content=system,
+            user_content=user,
+            max_tokens=max_tokens,
+        )
+        usage = reply.get("usage", {}) or {}
+        cost_usd = cost_mod.cost_from_usage(
+            usage, stage1_model, pricing=prices
+        )
+        model_used = stage1_model
+        if reply.get("error"):
+            return _verify_error(
+                "PoC generation failed: %s. No verdict. This finding "
+                "is NOT clean." % reply["error"],
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+            )
+        parsed_poc = verify_mod.parse_poc_generation(reply.get("content") or "")
+        if parsed_poc is None:
+            return _verify_result(
+                status="error",
+                unparsed=True,
+                error=(
+                    "Unparsed PoC generation, no PoC, this finding is "
+                    "NOT clean. The model reply contained no valid "
+                    "JSON PoC."
+                ),
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+            )
+        poc_text = parsed_poc["poc"]
+        poc_language = parsed_poc["language"]
+    elif poc_text is not None:
+        poc_text = str(poc_text)
+    # When test_command is given and no poc was supplied, there is
+    # no PoC text to generate or redact: the command runs a PoC
+    # file that already exists in the repo.
+
+    # The PoC text is NOT redacted here. Redaction before the
+    # generation call already removed secrets from the finding, so
+    # the model never saw one, and a supplied PoC is the caller's
+    # own text. Redacting the PoC itself mangled a generated test
+    # token in live testing (the assigned_secret pattern matches
+    # `token = "..."`, so the token became the bare word
+    # [REDACTED] and the PoC crashed with NameError). PoC output
+    # is never returned in full, only as a sha256 hash, so no
+    # secret can leak through the result that way.
+    artifacts = []
+    if poc_text is not None:
+        artifacts.append(
+            {
+                "name": "poc",
+                "sha256": verify_mod.sha256_hex(poc_text),
+                "path": None,
+            }
+        )
+
+    if not run_poc:
+        return _verify_result(
+            status="skipped",
+            error=(
+                "PoC was not run. The PoC is returned for review; pass "
+                "run_poc true to run it. A PoC that was not run is "
+                "never reproduced."
+            ),
+            assertions=[
+                {
+                    "name": "poc_run",
+                    "passed": False,
+                    "detail": "PoC was not run",
+                }
+            ],
+            artifacts=artifacts,
+            finding_id=finding_id,
+            model=model_used,
+            usage=usage,
+            cost_usd=cost_usd,
+            estimate_usd=estimate_usd,
+            regression_check=bool(regression_check),
+            warning=(
+                "Generated PoC is untrusted code until reviewed. "
+                "It was not run."
+            ),
+            poc=poc_text,
+        )
+
+    # Work out the command. The PoC text, supplied or generated, is
+    # written to a temp file in the repo. A supplied test_command
+    # runs a PoC file that already exists in the repo, or the written
+    # PoC when it names {poc}, for example pytest {poc} -k host_key.
+    # Without a test_command the PoC runs as python3 <poc file>.
+    # The temp file stays until patch validation is done, because
+    # the same command runs again after the fix candidate.
+    poc_path = None
+    if poc_text is not None:
+        try:
+            poc_path = verify_mod.write_poc_file(poc_text, root)
+        except (ValueError, OSError) as err:
+            return _verify_error(
+                "could not write the PoC file: %s" % err,
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+                poc=poc_text,
+                artifacts=artifacts,
+            )
+
+    def _remove_poc_file():
+        if poc_path is not None:
+            try:
+                poc_path.unlink()
+            except OSError:
+                pass
+
+    if test_command is not None:
+        if "{poc}" in raw_command and poc_path is None:
+            _remove_poc_file()
+            return _verify_error(
+                "{poc} in test_command needs a poc to run. Supply poc "
+                "or drop {poc} from the command.",
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+                poc=poc_text,
+                artifacts=artifacts,
+            )
+        command = [
+            str(poc_path) if tok == "{poc}" else tok for tok in raw_command
+        ]
+        command_error = verify_mod.validate_poc_command(command, root)
+        if command_error:
+            _remove_poc_file()
+            return _verify_error(
+                command_error,
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+                poc=poc_text,
+                artifacts=artifacts,
+            )
+    elif poc_path is not None:
+        command = [sys.executable, str(poc_path)]
+    else:
+        return _verify_error(
+            "no PoC to run and no test_command given",
+            finding_id=finding_id,
+            model=model_used,
+            usage=usage,
+            cost_usd=cost_usd,
+            estimate_usd=estimate_usd,
+            regression_check=bool(regression_check),
+            poc=poc_text,
+            artifacts=artifacts,
+        )
+
+    warning = None
+    if executor == "host":
+        warning = (
+            "PoC ran on the host, not in an isolated container. "
+            "Review the PoC before running it."
+        )
+
+    before = verify_mod.run_poc(
+        command, root, timeout=poc_timeout, executor=executor
+    )
+
+    poc_before = {
+        "command": list(command),
+        "exit_code": before["exit_code"],
+        "output_hash": before["output_hash"],
+        "ran": bool(before["ran"]),
+    }
+    if before["output_hash"]:
+        artifacts.append(
+            {
+                "name": "poc_output",
+                "sha256": before["output_hash"],
+                "path": None,
+            }
+        )
+    if not before["ran"]:
+        _remove_poc_file()
+        return _verify_result(
+            status="error",
+            error=before["error"],
+            assertions=[
+                {
+                    "name": "poc_run",
+                    "passed": False,
+                    "detail": before["error"] or "PoC could not run",
+                }
+            ],
+            artifacts=artifacts,
+            poc_before=poc_before,
+            finding_id=finding_id,
+            model=model_used,
+            usage=usage,
+            cost_usd=cost_usd,
+            estimate_usd=estimate_usd,
+            regression_check=bool(regression_check),
+            warning=warning,
+            poc=poc_text,
+        )
+
+    output = before["output"] or ""
+    evidence = verify_mod._evidence_from_output(output)
+    if before["exit_code"] not in (0, None) and evidence is None:
+        _remove_poc_file()
+        return _verify_result(
+            status="error",
+            error=(
+                "PoC exited with code %s and produced no JSON evidence "
+                "object, so the run cannot be judged. This is not a "
+                "not_reproduced result." % before["exit_code"]
+            ),
+            assertions=[
+                {
+                    "name": "poc_run",
+                    "passed": False,
+                    "detail": "PoC exited %s with no evidence object"
+                    % before["exit_code"],
+                }
+            ],
+            artifacts=artifacts,
+            poc_before=poc_before,
+            finding_id=finding_id,
+            model=model_used,
+            usage=usage,
+            cost_usd=cost_usd,
+            estimate_usd=estimate_usd,
+            regression_check=bool(regression_check),
+            warning=warning,
+            poc=poc_text,
+        )
+
+    status, assertions = verify_mod.run_oracle(
+        category, norm, output, before["exit_code"]
+    )
+
+    # Patch validation: same PoC, before and after a fix candidate.
+    poc_after = None
+    patch_passed = None
+    if fix_candidate is not None:
+        fix_target = (root / str(fix_candidate["path"])).resolve()
+        try:
+            original = fix_target.read_bytes()
+        except OSError as err:
+            _remove_poc_file()
+            return _verify_result(
+                status="error",
+                error="could not read the fix target: %s" % err,
+                assertions=assertions,
+                artifacts=artifacts,
+                poc_before=poc_before,
+                finding_id=finding_id,
+                model=model_used,
+                usage=usage,
+                cost_usd=cost_usd,
+                estimate_usd=estimate_usd,
+                regression_check=bool(regression_check),
+                warning=warning,
+                poc=poc_text,
+            )
+        try:
+            fix_target.write_bytes(
+                str(fix_candidate["content"]).encode()
+            )
+            after = verify_mod.run_poc(
+                command, root, timeout=poc_timeout, executor=executor
+            )
+        finally:
+            try:
+                fix_target.write_bytes(original)
+            except OSError:
+                pass
+        poc_after = {
+            "command": list(command),
+            "exit_code": after["exit_code"],
+            "output_hash": after["output_hash"],
+            "ran": bool(after["ran"]),
+        }
+        if after["output_hash"]:
+            artifacts.append(
+                {
+                    "name": "poc_output_after_fix",
+                    "sha256": after["output_hash"],
+                    "path": None,
+                }
+            )
+        if not after["ran"]:
+            patch_passed = False
+        else:
+            after_status, _after_assertions = verify_mod.run_oracle(
+                category, norm, after["output"] or "", after["exit_code"]
+            )
+            patch_passed = status == "reproduced" and after_status != "reproduced"
+
+    _remove_poc_file()
+    return _verify_result(
+        status=status,
+        assertions=assertions,
+        artifacts=artifacts,
+        poc_before=poc_before,
+        poc_after=poc_after,
+        finding_id=finding_id,
+        model=model_used,
+        usage=usage,
+        cost_usd=cost_usd,
+        estimate_usd=estimate_usd,
+        regression_check=bool(regression_check),
+        patch_passed=patch_passed,
+        warning=warning,
+        poc=poc_text,
+    )
+
+
+@mcp.tool()
+def verify_finding(
+    finding: dict | None = None,
+    finding_id: str | None = None,
+    repo_path: str | None = None,
+    poc: str | None = None,
+    test_command: str | None = None,
+    stage1_model: str | None = None,
+    spend_cap_usd: float = 1.00,
+    run_poc: bool = False,
+    regression_check: bool = False,
+    executor: str = "host",
+    fix_candidate: dict | None = None,
+    max_tokens: int = 2500,
+    code: str | None = None,
+) -> str:
+    """Verify one finding with a deterministic oracle, PoV-is-truth.
+
+    A finding stays a candidate until an oracle reproduces it.
+    GMI only writes the PoC, when poc is null; the local oracle
+    decides. code is the audited code and harness description
+    sent with the finding when a PoC is generated. A generated PoC is returned for review and only runs
+    when run_poc is true. A false_positive finding is refused
+    unless regression_check is true, and then the result is
+    labelled regression, not confirmation. Categories without an
+    oracle return skipped with "no oracle for this category".
+    test_command runs a PoC file already in the repo, or the
+    written PoC when it names {poc}, for example
+    pytest {poc} -k host_key. The PoC runs on the host by default,
+    with a warning; pass executor docker for a disposable
+    container when Docker is available. verify_finding never
+    applies a fix; a fix_candidate is run through patch
+    validation and then restored.
+    """
+    result = verify_impl(
+        finding=finding,
+        finding_id=finding_id,
+        repo_path=repo_path,
+        poc=poc,
+        test_command=test_command,
+        stage1_model=stage1_model,
+        spend_cap_usd=spend_cap_usd,
+        run_poc=run_poc,
+        regression_check=regression_check,
+        executor=executor,
+        fix_candidate=fix_candidate,
+        max_tokens=max_tokens,
+        code=code,
     )
     return json.dumps(result, indent=2)
 
@@ -1357,6 +2028,7 @@ def main(argv=None):
         print("explain_cve")
         print("draft_private_disclosure")
         print("estimate_cost")
+        print("verify_finding")
         return 0
     mcp.run()
     return 0

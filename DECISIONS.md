@@ -382,6 +382,86 @@ in pyproject.toml must be replaced before 2027-02-18. The
 build still succeeds and twine check passes; fix it with the
 next pyproject change.
 
+## 18. Phase A1, verification, v0.5.0, 2026-11-10
+
+Sources: 0sec-labs/0 triage.md section 3 (per-class oracles) and
+verification-result.md (VerificationResult shape), commit
+a891ba1cbf95a74e29f1e9789ebf1000ebad91a3, dual MIT OR Apache-2.0,
+read live 2026-11-10; Python subprocess and tempfile standard
+practice (list-form commands, no shell, timeout, tempfile inside
+the repo). Oracle rules adapted into original Python code, no 0
+TypeScript copied. NOTICE file added listing the adapted 0 parts
+with their MIT OR Apache-2.0 licence. Our code stays MIT.
+
+Decisions:
+- verify_finding tool, verify.py module, VerificationResult
+  schema in validate.py. confirmed is derived, true only when
+  status is reproduced, and never on a regression check.
+- Output fields are the plan 4.2 fields plus four extras, each
+  needed by a rule in the plan: regression_check (labels a
+  false_positive verified as a regression check, not a
+  confirmation), patch_passed (patch validation pass/fail),
+  warning (host executor warning, and untrusted-PoC warning when
+  not run), poc (the generated PoC returned for review).
+- Oracles for 5 categories only: SQLi (2 of 3 signals), XSS
+  (token in dialog/DOM sink), SSRF (nonce-matched collector
+  request), path traversal (/etc/passwd signature), host key
+  (wrong-key connection succeeds unverified, fails after fix).
+  Other categories return skipped with "no oracle for this
+  category". No oracle is invented.
+- PoC generation uses the same SYSTEM_ROLE and --- delimiters as
+  triage, via POC_PROMPT in prompts.py, and returns ONLY JSON
+  {"poc", "language", "notes"}, parsed with the same
+  balanced-JSON extraction. An unparsed generation is an error,
+  never a pass.
+- A generated PoC is untrusted code until reviewed. It is only
+  run when run_poc is true. A supplied PoC also needs run_poc
+  true. test_command runs a PoC file already in the repo, or the
+  written PoC when it names {poc}.
+- PoC runner: list-form subprocess only, no shell, 60 s timeout,
+  working directory inside the repo, PoC written with tempfile
+  inside the repo and removed after the run, child environment
+  scrubbed of credential-shaped variables including GMI_API_KEY,
+  so a PoC can never read the key from its environment.
+- Executor host is the default, with a plain warning in the
+  result. Executor docker refuses clearly when Docker is not
+  available, never silently choosing host.
+- PoC text is NOT redacted. Redacting it mangled a live
+  generated PoC in testing: the assigned_secret pattern matches
+  `token = "..."`, so the test token became the bare word
+  [REDACTED] and the PoC would crash with NameError. Secrets are
+  already redacted from the finding before the generation call,
+  so the model never sees one, and PoC output is returned only
+  as a sha256 hash, never in full.
+- Patch validation: same PoC before and after a fix candidate
+  given as {"path", "content"} for one repo file. The original
+  file bytes are restored after the run. patch_passed is true
+  only when the PoC reproduced before and did not reproduce
+  after. verify_finding never applies a fix on its own.
+- Live key method, same as v0.4.0: the registered custom.gmi-cloud
+  credential as an in-memory GMI_API_KEY env surrogate, via
+  dynamic_credential_entry, exactly as demo/term-server.py does
+  it. Never printed, never written to a file. Live runs used the
+  project venv (.venv-local, Python 3.12.3) with paramiko 5.1.0
+  installed there for the host-key harness; system Python is
+  3.12.3, Python 3.13.18 is at ~/.local/bin/python3.13 via uv.
+  The workspace copy is not a git checkout (no .git), so no push
+  was made from it; the tree is left ready for Phase A2.
+- Live results, 2026-11-10: 3 of 5 oracles reproduced (XSS, path
+  traversal, host key), SQLi and SSRF not_reproduced with reasons
+  recorded, 0 unparsed, $0.004749 total live spend. See SPEND.md
+  and live-verify-phaseA1-2026-11-10.json.
+- Known gaps, recorded not hidden: the host-key PoC asserts
+  host_key_mismatch rather than measuring the fingerprint against
+  a decoy key, so the oracle should require a measured
+  fingerprint comparison in a later cut. Generated PoCs can
+  hardcode the generation temp dir in sys.path; the run uses a
+  fresh temp repo, so PoCs must not depend on absolute temp
+  paths. The SQLi oracle reads at most one signal from raw text
+  (an SQL error signature), so a PoC that prints no JSON evidence
+  can never reach 2 signals; that is by design, the evidence
+  object is the path.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and

@@ -1,0 +1,18 @@
+NOTICE
+
+gmi-security-mcp
+Copyright (c) 2026 Jayanng
+Licensed under the MIT License. See LICENSE.
+
+Adapted parts:
+
+- Verification oracles and the VerificationResult shape in
+  src/gmi_security_mcp/verify.py and src/gmi_security_mcp/validate.py
+  are adapted from 0sec-labs/0 (https://github.com/0sec-labs/0),
+  commit a891ba1cbf95a74e29f1e9789ebf1000ebad91a3, docs triage.md
+  section 3 (per-class oracles) and verification-result.md
+  (VerificationResultSchema). 0 is dual licensed MIT OR Apache-2.0,
+  at the licensee's option, Copyright (c) 2026 0 Labs. The oracle
+  rules were adapted into original Python code; no 0 TypeScript
+  code was copied. This notice is retained as required by the
+  MIT OR Apache-2.0 licence of 0.
