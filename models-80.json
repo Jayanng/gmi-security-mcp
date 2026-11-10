@@ -531,44 +531,6 @@
       "discount_to_user": 0.4
     },
     {
-      "id": "openai/gpt-5.4-nano",
-      "internal_id": "a6aeab85-5b61-45b3-bffd-c694b1b232e1",
-      "name": "GPT-5.4-nano",
-      "object": "model",
-      "created": 1774234154,
-      "context_length": 409600,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000000200",
-        "completion": "0.000001250",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0.000000020",
-        "input_cache_write": "0"
-      },
-      "discount_to_user": 0
-    },
-    {
-      "id": "openai/gpt-5.4-mini",
-      "internal_id": "23cb6299-525b-4014-bcb0-eeead5563359",
-      "name": "GPT-5.4-mini",
-      "object": "model",
-      "created": 1774234150,
-      "context_length": 409600,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000000750",
-        "completion": "0.000004500",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0.000000075",
-        "input_cache_write": "0"
-      },
-      "discount_to_user": 0
-    },
-    {
       "id": "MiniMaxAI/MiniMax-M2.7",
       "internal_id": "b55d47ed-0d1e-467e-ae93-f1500402d184",
       "name": "MiniMaxAI/MiniMax-M2.7",
@@ -603,62 +565,6 @@
         "image": "0",
         "input_cache_read": "0.000000025",
         "input_cache_write": "0.000000083"
-      },
-      "discount_to_user": 0
-    },
-    {
-      "id": "openai/gpt-5.4-pro",
-      "internal_id": "d76fc13b-a773-4496-b6eb-ae2cba69fdfe",
-      "name": "GPT-5.4-pro",
-      "object": "model",
-      "created": 1773027042,
-      "context_length": 409600,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000030000",
-        "completion": "0.000180000",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0",
-        "input_cache_write": "0",
-        "overrides": [
-          {
-            "min_prompt_tokens": 272000,
-            "prompt": "0.000060000",
-            "completion": "0.000270000",
-            "input_cache_read": "0",
-            "input_cache_write": "0"
-          }
-        ]
-      },
-      "discount_to_user": 0
-    },
-    {
-      "id": "openai/gpt-5.4",
-      "internal_id": "e56e1d06-70cb-440f-b0d1-034bc2810ff5",
-      "name": "GPT-5.4",
-      "object": "model",
-      "created": 1772885695,
-      "context_length": 409600,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000002500",
-        "completion": "0.000015000",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0.000000250",
-        "input_cache_write": "0",
-        "overrides": [
-          {
-            "min_prompt_tokens": 272000,
-            "prompt": "0.000005000",
-            "completion": "0.000022500",
-            "input_cache_read": "0.000000500",
-            "input_cache_write": "0"
-          }
-        ]
       },
       "discount_to_user": 0
     },
@@ -1126,25 +1032,6 @@
       "discount_to_user": 0
     },
     {
-      "id": "moonshotai/Kimi-K2.6",
-      "internal_id": "73286e78-971f-435b-876e-de0b3d5d8516",
-      "name": "moonshotai/Kimi: K2.6",
-      "object": "model",
-      "created": 1777660164,
-      "context_length": 262144,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000000950",
-        "completion": "0.000004000",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0.000000160",
-        "input_cache_write": "0"
-      },
-      "discount_to_user": 0.1
-    },
-    {
       "id": "moonshotai/kimi-k2.7-code",
       "internal_id": "2b6c9f5e-7afa-4125-b512-63d2865dd903",
       "name": "moonshotai/Kimi: K2.7-Code",
@@ -1159,25 +1046,6 @@
         "request": "0",
         "image": "0",
         "input_cache_read": "0.000000190",
-        "input_cache_write": "0"
-      },
-      "discount_to_user": 0
-    },
-    {
-      "id": "moonshotai/Kimi-K2-Instruct-0905",
-      "internal_id": "c8f01e1e-b793-41f4-80e9-b6e9dc3f9da2",
-      "name": "moonshotai/Kimi-K2-Instruct-0905",
-      "object": "model",
-      "created": 1768879121,
-      "context_length": 262144,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000000570",
-        "completion": "0.000002290",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0.000000140",
         "input_cache_write": "0"
       },
       "discount_to_user": 0
@@ -1427,25 +1295,6 @@
         "image": "0",
         "input_cache_read": "0.000000206",
         "input_cache_write": "0.000002063"
-      },
-      "discount_to_user": 0
-    },
-    {
-      "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
-      "internal_id": "73a40add-f8bc-4bec-8097-8b24cde9b8aa",
-      "name": "Qwen3 Next 80B A3B Instruct ",
-      "object": "model",
-      "created": 1772500519,
-      "context_length": 262144,
-      "quantization": "fp8",
-      "owned_by": "GMI Cloud",
-      "pricing": {
-        "prompt": "0.000000150",
-        "completion": "0.000001500",
-        "request": "0",
-        "image": "0",
-        "input_cache_read": "0",
-        "input_cache_write": "0"
       },
       "discount_to_user": 0
     },

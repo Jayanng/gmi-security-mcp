@@ -19,6 +19,21 @@ on all 79 shared models, including `google/gemini-3.5-flash-lite`
 `gmicloud/Ripple-65B-Preview` still has no flat pricing (null) and
 is treated as unpriced.
 
+Live re-check 2026-11-10, before the v0.5.0 release: the live
+list has 73 models, 73 unique, down from 80. Two consecutive
+calls returned the same 73. Removed, 7 models:
+`Qwen/Qwen3-Next-80B-A3B-Instruct`, `moonshotai/Kimi-K2-Instruct-0905`,
+`moonshotai/Kimi-K2.6`, `openai/gpt-5.4`, `openai/gpt-5.4-mini`,
+`openai/gpt-5.4-nano`, `openai/gpt-5.4-pro`. Pricing is unchanged
+on all 73 shared models, including `google/gemini-3.5-flash-lite`.
+`gmicloud/Ripple-65B-Preview` still has no flat pricing (null)
+and is treated as unpriced. Both copies of the file were
+regenerated from the live list; the filename `models-80.json`
+is kept because cost.py, pyproject.toml, and this file all
+reference it by that name, and the count in the name is not a
+guarantee: GMI rotates models, and the file is re-checked live
+before each release.
+
 A second copy lives at `src/gmi_security_mcp/models-80.json` so
 the installed package can read pricing. The two copies must be
 kept identical; the repo-root copy is the source of truth.

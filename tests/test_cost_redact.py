@@ -19,7 +19,12 @@ def test_load_pricing_from_repo_file():
     assert "google/gemini-3.5-flash-lite" in pricing
     assert pricing["google/gemini-3.5-flash-lite"] == (0.0000003, 0.0000025)
     assert "gmicloud/Ripple-65B-Preview" not in pricing
-    assert len(pricing) >= 79
+    # Floor, not an exact count: the live model list rotates.
+    # Re-checked 2026-11-10 before the v0.5.0 release, the file
+    # holds 73 models, 72 priced (Ripple is unpriced), down from
+    # 80. A file with fewer than 70 priced models would mean the
+    # pricing data is truncated, not rotated.
+    assert len(pricing) >= 70
 
 
 def test_estimate_prompt_tokens():

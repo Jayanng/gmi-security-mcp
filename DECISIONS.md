@@ -743,6 +743,62 @@ Decisions:
   including the A1/A2 scripts). Live-run scripts now live
   in ~/workspace/gmi-clouder/.scratch/, not /tmp.
 
+## 21. Release v0.5.0, 2026-11-10
+
+- Version 0.5.0 everywhere: pyproject.toml, __init__.py
+  __version__, server.json (package version and top-level
+  version), README, CHANGELOG.md. server.json re-validated
+  with mcp-publisher validate 1.8.8 against the live
+  registry: valid.
+- pyproject.toml license fixed to the SPDX form
+  (`license = "MIT"`). Build with `python -m build`
+  (build 1.6.1) produced gmi_security_mcp-0.5.0.tar.gz and
+  gmi_security_mcp-0.5.0-py3-none-any.whl; `twine check`
+  passed on both. Built metadata carries
+  License-Expression: MIT. No deprecation warning.
+- CHANGELOG.md written, Keep a Changelog, SemVer, from
+  v0.4.0. README updated: What is new in 0.5.0, Verification,
+  Findings, Custom Rules, Scope, Limitations, Cost, Models,
+  repo structure. TUTORIAL.md gained sections 9 to 12
+  (verify a finding, list findings, run the custom rules,
+  enable scope), all real commands and real output, verified
+  by running each command.
+- README intro fixed to the allowed cross-reference line
+  only: "This server shares triage logic with an earlier,
+  separately submitted product." The previous paragraph
+  named the first product and linked its repo and live site;
+  that is removed in v0.5.0, per the plan section 10.3 rule
+  and the separation rule. No link, no product name, no
+  joint branding.
+- models-80.json re-checked live twice, same result: 73
+  models, 73 unique, down from 80. Removed: Qwen/Qwen3-Next-
+  80B-A3B-Instruct, moonshotai/Kimi-K2-Instruct-0905,
+  moonshotai/Kimi-K2.6, openai/gpt-5.4, openai/gpt-5.4-mini,
+  openai/gpt-5.4-nano, openai/gpt-5.4-pro. Pricing unchanged
+  on all 73 shared models. Ripple still unpriced (null).
+  Both copies (repo root and src/) regenerated from the live
+  list and kept identical. The filename models-80.json is
+  kept because cost.py, pyproject.toml, and DATA_SOURCES.md
+  all reference it by that name; the count in the name is
+  not a guarantee. Recorded in DATA_SOURCES.md.
+- Install re-test, v0.5.0: the 0.5.0 wheel installs cleanly
+  in a fresh Python 3.13 venv (the wheel requires
+  >=3.13; a 3.12 venv refuses it, as designed) and lists
+  15 tools. Codex 0.164.0 re-tested: `codex mcp add` with
+  the installed binary, `codex mcp list` shows it,
+  tools/list against the exact registered command returned
+  all 15 tools, registration removed afterwards. Claude Code
+  could not be re-tested: the CLI is not installed on this
+  VM. Cursor not tested: desktop GUI, not on this VM.
+- Registry/PyPI publish still blocked (section 17): user
+  PyPI token and GitHub device-flow login needed. Recorded,
+  not attempted. No post to X, no GMI form, no disclosure,
+  no PR.
+- /tmp on this VM is wiped between commands (all /tmp run
+  scripts lost mid-session, including the A1/A2 scripts).
+  Live-run and tutorial scripts now live in
+  ~/workspace/gmi-clouder/.scratch/, not /tmp.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and
