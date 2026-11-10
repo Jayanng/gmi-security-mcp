@@ -41,6 +41,14 @@ additions, pricing unchanged on all 73 shared models.
 and is treated as unpriced. Both copies of the file were
 compared against the live list; no change was needed.
 
+Live re-check 2026-11-10, in the v0.5.2 fix pass: the live
+list still has 73 models, 73 unique, no removals, no
+additions, pricing unchanged on all 73 shared models.
+`gmicloud/Ripple-65B-Preview` still has no flat pricing (null)
+and is treated as unpriced. No model was invented and no
+pricing was changed; both copies were compared against the
+live list and no change was needed.
+
 A second copy lives at `src/gmi_security_mcp/models-80.json` so
 the installed package can read pricing. The two copies must be
 kept identical; the repo-root copy is the source of truth.
@@ -54,7 +62,9 @@ it is run. Live runs since: v0.5.0 Phase A2, 48/50, accuracy 0.960;
 v0.5.1 fix pass, 2026-11-10, google/gemini-3.5-flash-lite Stage 1
 only, 47/50, accuracy 0.940, precision 1.000, recall 0.880,
 0 unparsed, $0.0136399. Failures S10, S11, S24, all real triaged
-false_positive.
+false_positive. v0.5.2 fix pass, 2026-11-10, after the
+presence-flaw prompt clause: 47/50 again, same three failures,
+$0.0151149; see DECISIONS.md section 23.
 
 ## dataset-v2.json
 

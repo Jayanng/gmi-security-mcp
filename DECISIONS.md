@@ -916,6 +916,116 @@ correctness fix to a documented contract, not a new contract.
   `python -m build`, `twine check` passed, fresh-venv
   install lists 15 tools.
 
+## 23. Fix pass after v0.5.1, 2026-11-10
+
+Version 0.5.2, patch: every change is a bug fix, no new tools.
+One signature gains an optional parameter with a default
+(`verify_impl` takes `docker_available=None`, auto-detect
+when None), which is a bug fix to test determinism, not a
+new API surface. The MCP tool surface is unchanged: 15 tools.
+
+- A7, traversal: `count_field_occurrences` and
+  `read_snippet` in scanners.py now resolve the finding
+  file through `_safe_repo_path` and return None when the
+  path is absolute or climbs out of the repo, including
+  through a symlink. `read_snippet` gets the same guard
+  because it takes the same semgrep-supplied path; fixing
+  one and leaving the sibling open would fail the next
+  audit round. Normal relative paths are unaffected: the
+  repo_scan call sites pass semgrep-relative paths, and a
+  path that cannot be read still yields None, never a
+  claimed 0 or an empty snippet. Two new tests per function,
+  plus the existing missing-file tests.
+- Docker test: `test_verify_docker_executor_refused_when_
+  unavailable` failed on the bug-bounty machine (1 failed,
+  276 passed, 1 skipped there) because Docker is installed
+  there, so auto-detection found the binary and tried to
+  run a container, which exited 127 with no JSON evidence.
+  The refusal test now forces `docker_available=False`,
+  and `verify_impl` forwards it to both `run_poc` calls
+  (before and after). A new test forces the auto-detect
+  branches with a mocked `shutil.which`, so the suite is
+  deterministic on a machine with Docker and on one
+  without. The paramiko host-key test skips cleanly where
+  paramiko is absent (1 skipped on bug-bounty before the
+  fix); paramiko was installed into the bug-bounty venv
+  so the test runs there instead of skipping.
+- Presence-flaw prompt clause: TRIAGE_PROMPT gains one
+  narrow clause, the second deliberate exception to the
+  do-not-reword rule. A finding is also real when the code
+  shown itself contains the flaw by presence: a hardcoded
+  credential or live secret assigned in source, or a
+  password or private key written to a log or returned to
+  a client, with no masking, placeholder, test-only value,
+  or safe source in the code shown. Placeholders, test-only
+  values, environment-loaded values, usernames, and public
+  keys stay false_positive. Tested MockLLM first ($0.00,
+  dataset-50 51/51, dataset-v2 57/57, host-key real, clause
+  asserted present in the prompt), then one live dataset-50
+  run: 47/50, accuracy 0.940, precision 1.000, recall
+  0.880, 0 unparsed, $0.0151149. The clause did not move
+  Gemini 3.5 Flash Lite: the same three failures (S10,
+  S11, S24, confidences 0.9, 0.9, 0.95, identical to the
+  v0.5.1 run) and zero regressions (all 25 false positives
+  pass, including F10, F11, F17, F24, F25). The clause is
+  kept anyway: it states the correct review policy, costs
+  about 60 tokens a call, and broke nothing; the
+  missing-verification clause was kept on the same basis
+  (it did not flip the host-key finding on its own either).
+  Why the clause did not work on this model, verified by
+  reconstructing the exact redacted text the model saw:
+  redaction collapses S10, F10, and F11 to the same shape
+  (`API_KEY = [REDACTED]`), and F11's env-loaded value is
+  itself redacted away (`os.environ['API_KEY']` replaced
+  wholesale by the assigned_secret pattern). The only
+  signal separating real from placeholder is the finding's
+  own title and explanation, which the model discounts
+  against the code shown, and it fails closed on redacted
+  values. For S24 the model sees `password=[REDACTED]` in
+  a logger call and still returns false_positive at 0.95.
+  That is model judgement on redacted input, not a wording
+  gap: no further prompt tweak is planned, because a tweak
+  strong enough to force these three risks flipping F10
+  and F11, which share the redacted shape. No live
+  repo_scan re-run was made for the prompt clause: one
+  live run per fix, and the dataset run was the prompt
+  fix's run.
+- Models re-checked live 2026-11-10: 73 models, 73 unique,
+  no removals, no additions, pricing unchanged on all 73
+  shared models, Ripple (`gmicloud/Ripple-65B-Preview`)
+  still the only unpriced model. List-models is not an
+  inference call: $0.00.
+- Audit findings A3-A6 from the post-v0.5.0 audit,
+  re-checked against current code, all Info, no code fix:
+  A3 test sentinel value (test_verify.py line 553,
+  test-only, env reset after), A4 osv.py dynamic urllib
+  (constant OSV host, advisory id regex-validated, false
+  positive documented in code), A5 buggy generated PoC
+  (model output, PoCs are reviewed before they run by
+  design, evidence contract still in POC_PROMPT), A6 two
+  rules on one line are two findings (dedup by rule id,
+  file, line, by design, scanners.py line 263).
+- Cursor not tested, Claude Code and Codex not tested as
+  agents. Muse agent-side 15/15 stands from the v0.5.1
+  fix pass; it was not re-run in this pass (no live run
+  budget was allocated to it, and no tool surface changed).
+  The 12-example live run was not repeated in this pass
+  either, for the same reason: one live run per fix, and
+  the dataset run was the prompt fix's run.
+- Internal audit of the changed code (report workspace-only,
+  AUDIT-2026-11-10-fixpass-052.md, never pushed): full
+  suite 282 passed locally and on bug-bounty after the
+  fixes, semgrep, osv-scanner, and trufflehog re-run, no
+  High or Medium open, only the recorded Info items above.
+- Spend, this pass: $0.0151149 of the $1.00 cap (one live
+  dataset-50 run). Remaining: $0.9848851.
+- Version 0.5.2 everywhere: pyproject.toml, __init__.py
+  __version__, server.json (package version and top-level
+  version), README, CHANGELOG.md. server.json re-validated
+  with mcp-publisher validate. Rebuilt with
+  `python -m build`, `twine check` passed, fresh-venv
+  install lists 15 tools.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and
@@ -927,14 +1037,17 @@ correctness fix to a documented contract, not a new contract.
 - Generated PoC quality: the fix-pass live verify run generated
   a PoC with a bug (it unpacked None and exited 1 before the
   fallback ran). Model output, not server code; PoCs are
-  reviewed before they run, by design. No server fix in 0.5.1.
-- `count_field_occurrences` does not validate the finding's
-  file path against traversal; the source is semgrep output
-  for a user-chosen repo and the only effect is a count in a
-  prompt. Noted in the post-v0.5.0 internal audit, finding
-  A7, no fix in 0.5.1.
+  reviewed before they run, by design. No server fix in 0.5.1
+  or 0.5.2.
 - Dataset-50 sits at 47/50 live (S10, S11, S24 fail, all real
-  triaged false_positive). S11 flips between runs. No further
-  prompt change is planned without a dataset-tested cause;
-  the missing-verification clause is not the cause, it
-  mentions no secret or password language.
+  triaged false_positive). S11 flips between runs. The
+  presence-flaw clause (section 23) did not move Gemini 3.5
+  Flash Lite on these three and broke nothing; the gap is
+  model judgement on redacted values, recorded honestly,
+  not a wording gap. No further prompt change is planned.
+  A live repo_scan re-check of the host-key finding after
+  the prompt clause was not run in this pass (one live run
+  per fix); the MockLLM floor and the unchanged
+  missing-verification clause are the evidence. Re-run it
+  live before claiming the 0.5.2 repo_scan result, if a
+  fresh live number is needed.

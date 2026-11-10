@@ -19,7 +19,19 @@ clause is narrow: it only covers a complete configuration or setup
 that omits a required verification, and it keeps false_positive
 when the verification is present. It was tested on the 50-finding
 dataset with a MockLLM floor first, then one live run, before it
-shipped. REPO_PROMPT is unchanged and is not used by the server.
+shipped. Second exception, DECISIONS.md section 23 (2026-11-10,
+fix pass after v0.5.1): TRIAGE_PROMPT gains one presence-flaw
+clause. The same tainted-flow reading misses flaws the code
+contains by presence, a hardcoded credential assigned in source
+or a password written to a log, which have no untrusted-input
+flow at all. The clause is narrow: it only covers a hardcoded
+credential or live secret assigned in source, or a password or
+private key written to a log or returned to a client, and it
+keeps false_positive for a placeholder, a test-only value, a
+value loaded from the environment, or a non-sensitive value
+such as a username or a public key. Same test order: MockLLM
+floor first, then one live dataset run. REPO_PROMPT is unchanged
+and is not used by the server.
 """
 
 TRIAGE_PROMPT = (
@@ -31,7 +43,12 @@ TRIAGE_PROMPT = (
     'and it omits a required verification with no equivalent check in the code shown, '
     'for example an SSH client configuration with no host key verification, a JWT decode '
     'with signature verification disabled, or a TLS or certificate check that is skipped. '
-    'Judge on the code shown: do not call it false_positive only because the full file '
+    'A finding is also real when the code shown itself contains the flaw by presence, '
+    'with no masking, placeholder, test-only value, or safe source in the code shown: '
+    'a hardcoded credential or live secret assigned in source, or a password or private '
+    'key written to a log or returned to a client. A placeholder value, a test-only '
+    'value, a value loaded from the environment, or a non-sensitive value such as a '
+    'username or a public key is still false_positive. Judge on the code shown: do not call it false_positive only because the full file '
     'or the call site is not shown, when the code shown is the configuration that would '
     'carry the verification. A finding is still false_positive when the code shown '
     'includes the verification or an equivalent check. Return ONLY JSON, no other text: '

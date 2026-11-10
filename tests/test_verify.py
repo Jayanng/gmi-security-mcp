@@ -835,6 +835,11 @@ def test_verify_test_command_outside_repo_refused(tmp_path):
 
 
 def test_verify_docker_executor_refused_when_unavailable(tmp_path):
+    """Refusal is forced with docker_available False, so this test
+    does not depend on whether the machine running it has Docker
+    installed. On a machine with Docker the auto-detect path would
+    run a container instead of refusing, which is the correct
+    behaviour there, not this test."""
     repo = _repo(tmp_path)
     result = srv.verify_impl(
         finding=_finding("xss"),
@@ -842,10 +847,78 @@ def test_verify_docker_executor_refused_when_unavailable(tmp_path):
         poc=_poc_text("xss"),
         run_poc=True,
         executor="docker",
+        docker_available=False,
         pricing=PRICING,
     )
     assert result["status"] == "error"
     assert "Docker is not available" in result["error"]
+
+
+def test_verify_docker_executor_forwards_availability(monkeypatch, tmp_path):
+    """verify_impl forwards docker_available to run_poc: with
+    Docker forced available and the container run mocked, the
+    docker command is what runs, with the repo mounted read-only."""
+    import subprocess as subprocess_mod
+
+    repo = _repo(tmp_path)
+    captured = {}
+
+    def _fake_run(command, **kwargs):
+        captured["command"] = list(command)
+        return subprocess_mod.CompletedProcess(
+            args=command, returncode=0, stdout='{"ok": true}\n', stderr=""
+        )
+
+    monkeypatch.setattr(verify_mod.subprocess, "run", _fake_run)
+    result = srv.verify_impl(
+        finding=_finding("xss"),
+        repo_path=str(repo),
+        poc=_poc_text("xss"),
+        run_poc=True,
+        executor="docker",
+        docker_available=True,
+        pricing=PRICING,
+    )
+    assert captured["command"][0] == "docker"
+    assert result["status"] in ("reproduced", "not_reproduced", "error")
+
+
+def test_run_poc_docker_auto_detect_uses_path(monkeypatch, tmp_path):
+    """Auto-detection is environment-aware by construction: with
+    no docker binary on PATH it refuses, with one it attempts a
+    container run. Both branches are forced here with a mocked
+    shutil.which, so the test is deterministic on any machine."""
+    import subprocess as subprocess_mod
+
+    repo = _repo(tmp_path)
+    monkeypatch.setattr(verify_mod.shutil, "which", lambda name: None)
+    refused = verify_mod.run_poc(
+        [sys.executable, "-c", "print('x')"],
+        repo,
+        executor="docker",
+    )
+    assert refused["ran"] is False
+    assert "Docker is not available" in refused["error"]
+
+    monkeypatch.setattr(
+        verify_mod.shutil, "which", lambda name: "/usr/bin/docker"
+    )
+    captured = {}
+
+    def _fake_run(command, **kwargs):
+        captured["command"] = list(command)
+        return subprocess_mod.CompletedProcess(
+            args=command, returncode=0, stdout='{"ok": true}\n', stderr=""
+        )
+
+    monkeypatch.setattr(verify_mod.subprocess, "run", _fake_run)
+    attempted = verify_mod.run_poc(
+        [sys.executable, "-c", "print('x')"],
+        repo,
+        executor="docker",
+    )
+    assert attempted["ran"] is True
+    assert captured["command"][0] == "docker"
 
 
 def test_verify_estimate_over_cap_refused_before_call(tmp_path):

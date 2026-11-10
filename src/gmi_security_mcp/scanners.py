@@ -310,6 +310,31 @@ def find_lockfiles(repo_path):
     return found
 
 
+def _safe_repo_path(repo_path, rel_file):
+    """Resolve rel_file inside repo_path, or None when it escapes.
+
+    Semgrep reports the finding file as a path, and the server
+    passes it straight here. An absolute path or a ".." that
+    climbs out of the repo must never be read: the read is only
+    ever meant to be inside the repo the user chose to scan.
+    A path that does not exist inside the repo is also None, so
+    callers keep their existing None-means-unreadable contract.
+    """
+    try:
+        root = Path(repo_path).resolve()
+        if not root.is_dir():
+            return None
+        rel = Path(rel_file)
+        if rel.is_absolute():
+            return None
+        candidate = (root / rel).resolve()
+        if candidate != root and root not in candidate.parents:
+            return None
+        return candidate
+    except (OSError, ValueError, RuntimeError):
+        return None
+
+
 def read_snippet(repo_path, rel_file, line, context_lines=25, max_chars=8000):
     """Code around a finding line, bounded by lines and characters.
 
@@ -317,6 +342,8 @@ def read_snippet(repo_path, rel_file, line, context_lines=25, max_chars=8000):
     (line - context) to (line + context) are read, so a large file
     is never loaded whole or sent whole to GMI. repo_scan also
     skips files over the per-file cap before this is called.
+    A path that escapes the repo returns None, never file content
+    from outside the repo.
     """
     try:
         number = int(line)
@@ -325,8 +352,11 @@ def read_snippet(repo_path, rel_file, line, context_lines=25, max_chars=8000):
     start = max(0, number - 1 - context_lines)
     end = number + context_lines
     wanted = []
+    path = _safe_repo_path(repo_path, rel_file)
+    if path is None:
+        return None
     try:
-        with open(Path(repo_path) / rel_file, errors="replace") as handle:
+        with open(path, errors="replace") as handle:
             for index, text_line in enumerate(handle):
                 if index < start:
                     continue
@@ -345,13 +375,17 @@ def count_field_occurrences(repo_path, rel_file, fields, max_bytes=1024 * 1024):
     or is over max_bytes. Used for custom-rule findings that
     assert a verification field is absent: the count is factual
     evidence for triage, not a verdict. A file that cannot be
-    read yields None, never a claimed 0.
+    read yields None, never a claimed 0. A path that escapes the
+    repo (absolute, or ".." climbing out) yields None too: the
+    count is only ever read inside the repo being scanned.
     """
     if not fields:
         return {}
     try:
-        path = Path(repo_path) / rel_file
-        if not path.is_file() or path.stat().st_size > max_bytes:
+        path = _safe_repo_path(repo_path, rel_file)
+        if path is None or not path.is_file():
+            return None
+        if path.stat().st_size > max_bytes:
             return None
         text = path.read_text(errors="replace")
     except (OSError, ValueError):

@@ -1901,6 +1901,7 @@ def verify_impl(
     run_poc=False,
     regression_check=False,
     executor="host",
+    docker_available=None,
     fix_candidate=None,
     max_tokens=2500,
     chat_fn=None,
@@ -1922,6 +1923,9 @@ def verify_impl(
     finding_id is resolved from the findings store, the
     verification result is stored there, and a reproduced result
     moves the finding to verified; db_path None stores nothing.
+    docker_available None auto-detects Docker from PATH; True or
+    False forces the check, so a test can force the refusal path
+    on a machine where Docker is installed.
     """
     chat_fn = chat_fn or gmi_mod.chat
     stored = None
@@ -2401,7 +2405,8 @@ def verify_impl(
         )
 
     before = verify_mod.run_poc(
-        command, root, timeout=poc_timeout, executor=executor
+        command, root, timeout=poc_timeout, executor=executor,
+        docker_available=docker_available,
     )
 
     poc_before = {
@@ -2506,7 +2511,8 @@ def verify_impl(
                 str(fix_candidate["content"]).encode()
             )
             after = verify_mod.run_poc(
-                command, root, timeout=poc_timeout, executor=executor
+                command, root, timeout=poc_timeout, executor=executor,
+                docker_available=docker_available,
             )
         finally:
             try:

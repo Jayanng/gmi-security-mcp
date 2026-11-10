@@ -12,6 +12,23 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.2
+
+- `count_field_occurrences` and `read_snippet` now refuse
+  paths that escape the repo being scanned. Closes internal
+  audit finding A7.
+- The Docker-unavailable refusal test no longer depends on
+  whether the machine running it has Docker installed.
+  `verify_finding` accepts `docker_available` so the test
+  can force the refusal path.
+- Triage prompt gains one narrow presence-flaw clause for
+  hardcoded credentials and passwords or private keys in
+  logs. Live dataset-50 stays 47/50: the clause did not
+  move Gemini 3.5 Flash Lite on S10, S11, and S24, and
+  broke nothing. See DECISIONS.md section 23 for the
+  honest record of why that gap is model judgement on
+  redacted values, not a wording gap.
+
 ## What is new in 0.5.1
 
 - Triage now catches missing-verification flaws. The
@@ -604,6 +621,7 @@ above $5.00.
 | `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.0, file cap 200 KB, 14 findings triaged (13 default + 1 custom), 0 real, 13 false positive, 1 no verdict | $0.005798 |
 | `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.1 fix pass, 14 findings triaged, 1 real (host-key, 0.95), 13 false positive | $0.005954 |
 | The 50-finding dataset through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass: 47 of 50 correct, accuracy 0.940, precision 1.000, recall 0.880, 0 unparsed | $0.0136399 |
+| The 50-finding dataset through this server, Gemini 3.5 Flash Lite, v0.5.2 fix pass, after the presence-flaw prompt clause: 47 of 50 correct, accuracy 0.940, precision 1.000, recall 0.880, 0 unparsed, same three failures (S10, S11, S24) | $0.0151149 |
 | The 56-finding dataset-v2 through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass, first live score: 53 of 56 correct, accuracy 0.946, precision 1.000, recall 0.893, 0 unparsed | $0.015404 |
 | Muse agent-side test, all 15 tools over MCP stdio, v0.5.1 fix pass | $0.001867 |
 | `explain_cve` on CVE-2021-44228 with Gemini 3.5 Flash Lite | $0.0010385 |
@@ -630,9 +648,10 @@ the fixture PoC reproduces it with measured fingerprints, so
 the finding is verified in the store. A clean repo_scan means
 no semgrep finding triaged real, not that the repo has no flaws.
 
-Total build spend so far is about $0.1276 of a $5.00 budget
+Total build spend so far is about $0.1427 of a $5.00 budget
 (v0.4.0 $0.0506687 + v0.5.0 $0.0275547 + v0.5.1 fix pass
-about $0.0494). See `SPEND.md` in the workspace for the
+about $0.0494 + v0.5.2 fix pass $0.0151149, under its own
+$1.00 cap). See `SPEND.md` in the workspace for the
 per-run log. The spend log is not shipped in the repo.
 
 ## Privacy and security

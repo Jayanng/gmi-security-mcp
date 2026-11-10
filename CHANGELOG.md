@@ -6,6 +6,56 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.2] - 2026-11-10
+
+### Fixed
+
+- `count_field_occurrences` and `read_snippet` now refuse
+  paths that escape the repo being scanned (absolute paths,
+  or `..` climbing out), returning None instead of reading
+  outside the repo. The paths come from semgrep output, and
+  the only effect before was a count or a snippet, but the
+  read is now bounded to the repo. Closes internal audit
+  finding A7 from the post-v0.5.0 audit.
+- `verify_finding` now accepts `docker_available`, and the
+  Docker-unavailable refusal test forces it to False instead
+  of relying on auto-detection. The test failed on a machine
+  with Docker installed because auto-detection found the
+  binary and tried to run a container. The refusal
+  behaviour is unchanged; only the test's determinism and
+  the plumbing changed. Auto-detection is covered by a new
+  test that forces both branches with a mocked `shutil.which`.
+- Triage prompt gains one narrow presence-flaw clause: a
+  finding is also real when the code shown itself contains
+  the flaw by presence, a hardcoded credential or live
+  secret assigned in source, or a password or private key
+  written to a log or returned to a client, with no masking,
+  placeholder, test-only value, or safe source in the code
+  shown. Placeholders, test-only values, environment-loaded
+  values, usernames, and public keys stay false_positive.
+  See DECISIONS.md section 23.
+
+### Live results, v0.5.2 fix pass
+
+- Dataset-50 live: 47/50, accuracy 0.940, precision 1.000,
+  recall 0.880, 0 unparsed, $0.0151149. Failures are the
+  same three as v0.5.1: S10, S11, S24, all real triaged
+  false_positive. The presence clause did not move Gemini
+  3.5 Flash Lite on these three, and broke nothing: all 25
+  false positives still pass, including F10, F11, F17, F24,
+  and F25. Recorded honestly in DECISIONS.md section 23:
+  the remaining gap is model judgement on redacted values,
+  not a prompt wording gap that a further tweak can fix
+  without risking the false positives. No live repo_scan
+  re-run was made for the prompt clause: one live run per
+  fix, and the dataset run was the prompt fix's run.
+- MockLLM floors, $0.00: dataset-50 51/51, dataset-v2
+  57/57, host-key triaged real.
+- Models re-checked live 2026-11-10: 73 models, 73 unique,
+  no removals, no additions, pricing unchanged, Ripple
+  still the only unpriced model.
+- 282 unit tests pass.
+
 ## [0.5.1] - 2026-11-10
 
 ### Fixed

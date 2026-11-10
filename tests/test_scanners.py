@@ -186,6 +186,41 @@ def test_count_field_occurrences_missing_file_is_none_not_zero(tmp_path):
     assert scanners.count_field_occurrences(tmp_path, "missing.ts", []) == {}
 
 
+def test_count_field_occurrences_rejects_paths_outside_repo(tmp_path):
+    """A7: an absolute path or a ".." that climbs out of the repo
+    returns None, never a count from outside the repo. The outside
+    file really contains the field, so a passing test proves the
+    guard, not an unreadable file."""
+    outside = tmp_path / "outside.ts"
+    outside.write_text("hostVerifier = null;\n")
+    assert scanners.count_field_occurrences(
+        tmp_path, str(outside), ["hostVerifier"]
+    ) is None
+    assert scanners.count_field_occurrences(
+        tmp_path, "../outside.ts", ["hostVerifier"]
+    ) is None
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert scanners.count_field_occurrences(
+        repo, "../outside.ts", ["hostVerifier"]
+    ) is None
+
+
+def test_read_snippet_rejects_paths_outside_repo(tmp_path):
+    """Same guard as count_field_occurrences: read_snippet takes
+    the same semgrep-supplied path, so it gets the same check.
+    A nested relative path inside the repo still reads."""
+    outside = tmp_path / "outside.py"
+    outside.write_text("line 1\nline 2\n")
+    assert scanners.read_snippet(tmp_path, str(outside), 1) is None
+    assert scanners.read_snippet(tmp_path, "../outside.py", 1) is None
+    repo = tmp_path / "repo"
+    (repo / "sub").mkdir(parents=True)
+    (repo / "sub" / "app.py").write_text("line 1\nline 2\nline 3\n")
+    assert "line 2" in scanners.read_snippet(repo, "sub/app.py", 2)
+    assert scanners.read_snippet(repo, "../outside.py", 1) is None
+
+
 def test_find_lockfiles(tmp_path):
     (tmp_path / "package-lock.json").write_text("{}")
     (tmp_path / "sub").mkdir()
