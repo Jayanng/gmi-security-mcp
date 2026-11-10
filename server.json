@@ -1,0 +1,33 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "description": "Triage semgrep findings with GMI Inference, with cost shown before every run.",
+  "name": "io.github.Jayanng/gmi-security-mcp",
+  "packages": [
+    {
+      "environmentVariables": [
+        {
+          "description": "GMI Inference API key",
+          "format": "string",
+          "isRequired": true,
+          "isSecret": true,
+          "name": "GMI_API_KEY"
+        }
+      ],
+      "identifier": "gmi-security-mcp",
+      "registryType": "pypi",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "version": "0.4.0"
+    }
+  ],
+  "repository": {
+    "id": "1452187638",
+    "source": "github",
+    "url": "https://github.com/Jayanng/gmi-security-mcp"
+  },
+  "title": "gmi-security-mcp",
+  "version": "0.4.0",
+  "websiteUrl": "https://github.com/Jayanng/gmi-security-mcp"
+}

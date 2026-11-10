@@ -1,5 +1,7 @@
 # gmi-security-mcp
 
+<!-- mcp-name: io.github.Jayanng/gmi-security-mcp -->
+
 A security MCP server for coding agents, backed by GMI Inference.
 
 Your agent in Claude Code, Codex, or Cursor calls the tools while it
@@ -489,6 +491,7 @@ gmi-security-mcp/
   DECISIONS.md
   DATA_SOURCES.md
   pyproject.toml
+  server.json      MCP Registry manifest, name io.github.Jayanng/gmi-security-mcp
   src/gmi_security_mcp/
     server.py      stdio MCP server, the six tools
     gmi.py         GMI client, timeout, retry, cost from usage
@@ -573,6 +576,12 @@ MIT. See LICENSE.
 
 ## Changelog
 
+- 0.4.0, 2026-11-10, Phase 7: `server.json` for the official MCP
+  Registry (name `io.github.Jayanng/gmi-security-mcp`, PyPI package
+  `gmi-security-mcp` 0.4.0), `mcp-name` ownership marker in this
+  README, `__version__` fixed to 0.4.0. Registry publish not done
+  yet: the PyPI release is a precondition and no PyPI credential
+  was available to this build, see DECISIONS.md section 17.
 - 0.4.0, 2026-11-10, Phase 6: product README in audit-tool order,
   one-command pip and pipx install, `mcp-test` console command,
   `install/` config snippets for Claude Code, Codex, and Cursor,

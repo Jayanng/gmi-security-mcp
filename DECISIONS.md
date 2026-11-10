@@ -294,8 +294,99 @@ cursor overlay failed. Take 2 is the delivered video: 57.84
 seconds, 1920x1080, 30 fps, real repo_scan run, 2 findings both
 false positive, $0.001219.
 
+## 17. Registry publish, Phase 7, 2026-11-10
+
+Contribution guide verified live 2026-11-10 before any work:
+the official quickstart at modelcontextprotocol.info/registry/
+quickstart (pinned to registry docs commit 5c3de5c, 2026-11-04),
+the package-types doc for PyPI, and the server schema
+2025-12-11. The registry is in preview and may reset data.
+Publishing needs, in order: a public package on PyPI first
+(the registry stores metadata only and checks the package
+exists), an `mcp-name: io.github.Jayanng/gmi-security-mcp`
+marker in the package README (the PyPI ownership proof, may
+sit in an HTML comment, must be followed by a boundary), and
+`mcp-publisher login github` (device flow, user enters a code
+at github.com/login/device) followed by `mcp-publisher publish`.
+
+Done in this phase:
+- `server.json` written from the official schema and examples:
+  name `io.github.Jayanng/gmi-security-mcp`, title
+  `gmi-security-mcp`, description 77 characters (limit 100),
+  version 0.4.0, repository id 1452187638 from
+  `gh api repos/Jayanng/gmi-security-mcp`, one PyPI package
+  entry (`gmi-security-mcp` 0.4.0, stdio, runtimeHint uvx,
+  required secret env var GMI_API_KEY). `mcp-publisher
+  validate` (CLI 1.8.8) against the live registry: valid.
+  Validate is a pre-check only; publish additionally verifies
+  identity and package ownership, so a passing validate is not
+  a published result.
+- PyPI readiness verified by building the real package on the
+  bug-bounty machine (Python 3.13.5): `python -m build`
+  produced sdist and wheel 0.4.0, `twine check` passed on
+  both, LICENSE is inside both artifacts, models-80.json and
+  examples-12.json ship as package data, and the `mcp-name`
+  marker is present in the wheel METADATA (the rendered
+  README). A fresh venv install from the built wheel reports
+  version 0.4.0, lists all six tools, and `__version__` is
+  0.4.0. PyPI name check: `https://pypi.org/pypi/
+  gmi-security-mcp/json` returns 404, the name is free.
+  Registry search for the server name returns 0 servers.
+- Two packaging defects found and fixed before any release:
+  `__version__` was 0.3.0 while pyproject said 0.4.0
+  (the installed `--version` line printed the stale value),
+  now 0.4.0 everywhere; the README had no `mcp-name` marker,
+  now present as an HTML comment on its own line right after
+  the title. The live repo already had a LICENSE file; the
+  workspace copy lacked it, which is a workspace-copy gap
+  only, not a repo gap.
+
+NOT done, recorded decision not to submit yet, with reasons:
+- No PyPI publish was made. No PyPI account or API token for
+  Jayanng was available to this build: the Secure Vault holds
+  no pypi.org login, no PyPI credential exists in memory, and
+  no token was supplied with this task. Publishing to PyPI
+  under the user's name needs the user's own PyPI account and
+  token (or Trusted Publishing set up in the repo), and that
+  step belongs to the user, not to an agent guessing at it.
+- No registry publish was made. It is blocked on the PyPI
+  release above, and `mcp-publisher login github` is an
+  interactive device flow the user must complete in a browser.
+  A validate pass does not publish anything.
+- No PR to modelcontextprotocol/servers was opened. That repo
+  is the fallback, not the first target, and a listing there
+  would point at a PyPI package that does not exist yet.
+- No $50 is claimed. The merge bar needs a merge into a real
+  third-party project; nothing here merged anywhere. This
+  phase does not change that, and no GMI form was submitted.
+
+Next steps, in order, for the user or a later run:
+1. Create a PyPI account as Jayanng (if none exists) and an
+   API token scoped to the `gmi-security-mcp` project, or set
+   up PyPI Trusted Publishing for Jayanng/gmi-security-mcp.
+2. From the pushed 0.4.0 tree, run `python -m build` and
+   `twine upload dist/*`, then confirm
+   https://pypi.org/project/gmi-security-mcp/ shows 0.4.0
+   with the `mcp-name` line in the rendered README.
+3. Run `mcp-publisher login github`, enter the device code,
+   then `mcp-publisher publish` from the repo root, and
+   confirm with the registry search API.
+4. Record the PyPI link and the registry link in this file
+   and in SPEND.md; only then is the $50 merge question
+   re-opened, and only if a merge into a third-party project
+   actually lands.
+
+Minor, non-blocking: the build prints a setuptools
+deprecation warning that the `license = {text = "MIT"}` form
+in pyproject.toml must be replaced before 2027-02-18. The
+build still succeeds and twine check passes; fix it with the
+next pyproject change.
+
 ## Open items
 
-- Registry publish (Phase 7): needs a PyPI release first.
+- Registry publish (Phase 7): `server.json` prepared and
+  validated, package verified PyPI-ready, but not published.
+  Blocked on a user-supplied PyPI credential and the GitHub
+  device-flow login. See section 17 for the exact next steps.
 - Disclosure drafting (Phase 4): build the tool from the template
   chosen here.
