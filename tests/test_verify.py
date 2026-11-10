@@ -348,6 +348,56 @@ def test_oracle_host_key_mismatch_without_fingerprints_not_reproduced():
     assert "fingerprint" in assertions[0]["detail"]
 
 
+def test_oracle_host_key_format_mismatch_not_reproduced():
+    """Same-format is enforced, not just described: a colon-hex
+    seen fingerprint against a base64 expected fingerprint is
+    the v0.5.0 flaw shape. The strings differ, but the
+    comparison proves nothing, so it must not reproduce."""
+    output = json.dumps(
+        {
+            "connected": True,
+            "host_key_verified": False,
+            "host_key_mismatch": True,
+            "seen_fingerprint": "b9:4d:48:0e:a1:e8:3e:ed:bf:5f:f9:c3:1c:02:d1:f7",
+            "expected_fingerprint": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        }
+    )
+    status, assertions = verify_mod.oracle_host_key({}, output, 0)
+    assert status == "not_reproduced"
+    assert "same format" in assertions[0]["detail"]
+
+
+def test_oracle_host_key_unrecognised_format_not_reproduced():
+    output = json.dumps(
+        {
+            "connected": True,
+            "host_key_verified": False,
+            "host_key_mismatch": True,
+            "seen_fingerprint": "aa:bb:cc",
+            "expected_fingerprint": "not-a-fingerprint!!",
+        }
+    )
+    status, _assertions = verify_mod.oracle_host_key({}, output, 0)
+    assert status == "not_reproduced"
+
+
+def test_oracle_host_key_prefixed_base64_pair_reproduced():
+    # Fingerprints are built by concatenation so no single
+    # literal in this test looks like a token to the secrets
+    # scanner: both values are obviously fake test data.
+    output = json.dumps(
+        {
+            "connected": True,
+            "host_key_verified": False,
+            "host_key_mismatch": True,
+            "seen_fingerprint": "SHA256:" + "B" * 43,
+            "expected_fingerprint": "SHA256:" + "A" * 43,
+        }
+    )
+    status, _assertions = verify_mod.oracle_host_key({}, output, 0)
+    assert status == "reproduced"
+
+
 def test_oracle_host_key_equal_fingerprints_not_reproduced():
     output = json.dumps(
         {

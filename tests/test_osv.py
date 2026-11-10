@@ -264,6 +264,27 @@ def test_fetch_advisory_found_and_missing():
         osv_mod.fetch_advisory("not-an-id", fetcher=FETCHER)
 
 
+def test_fetch_incomplete_read_returns_runtime_error(monkeypatch):
+    import http.client
+    import urllib.request
+
+    def _boom(request, timeout=30):
+        raise http.client.IncompleteRead(b"x" * 10, 5)
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    with pytest.raises(RuntimeError, match="OSV API request failed"):
+        osv_mod._default_fetch("https://api.osv.dev/v1/vulns/CVE-2021-44228")
+
+
+def test_explain_cve_fetch_failure_returns_found_false():
+    def _failing(url, timeout=30):
+        raise RuntimeError("OSV API request failed for %s: boom" % url)
+
+    result = srv.explain_cve_impl("CVE-2021-44228", fetcher=_failing)
+    assert result["found"] is False
+    assert "boom" in result["error"]
+
+
 def test_summarize_log4shell_cvss_10_and_fixed():
     summary = osv_mod.summarize_advisory(LOG4J_CVE, [LOG4J_GHSA])
     assert summary["cvss_score"] == 10.0

@@ -301,6 +301,30 @@ def oracle_path_traversal(finding, output, exit_code):
     ]
 
 
+def _fingerprint_format(fingerprint):
+    """Classify a fingerprint string, or None when unrecognised.
+
+    Returns (kind, length) with kind colon-hex, hex, or base64.
+    A leading SHA256:, SHA1:, or MD5: algorithm prefix is
+    stripped before classifying. The check is enforced by
+    oracle_host_key: both fingerprints must classify to the
+    same kind and length, so a colon-hex fingerprint compared
+    to a base64 string can never count as a measured mismatch.
+    """
+    text = (fingerprint or "").strip()
+    text = re.sub(r"^(SHA256|SHA1|MD5):", "", text, flags=re.I)
+    if re.match(r"^([0-9a-f]{2}:)+[0-9a-f]{2}$", text, re.I):
+        return ("colon-hex", len(text))
+    if re.match(r"^[0-9a-f]+$", text, re.I) and len(text) in (32, 40, 64):
+        return ("hex", len(text))
+    if (
+        re.match(r"^[A-Za-z0-9+/]+={0,2}$", text)
+        and len(text) in (22, 24, 27, 28, 43, 44)
+    ):
+        return ("base64", len(text))
+    return None
+
+
 def oracle_host_key(finding, output, exit_code):
     """Missing SSH host key verification oracle.
 
@@ -311,13 +335,18 @@ def oracle_host_key(finding, output, exit_code):
     PROVED by measurement: the fingerprint the client actually
     saw must be present, the fingerprint of a freshly generated
     decoy key must be present in the same format, and the two
-    must differ. A bare host_key_mismatch true with no
-    fingerprints is an assertion, not a measurement, and does
-    not reproduce: a PoC can assert mismatch against a fake
-    string that could never match (measured in the v0.5.0 live
-    run, where the PoC compared a colon-hex fingerprint to a
-    base64 decoy string). A connection that failed, or one that
-    verified the key, is not confirmation.
+    must differ. Same format is enforced, not just described:
+    _fingerprint_format must classify both fingerprints to the
+    same kind and length, so the v0.5.0 flaw shape, a colon-hex
+    fingerprint compared to a base64 decoy string, is
+    not_reproduced even when the two strings differ. A bare
+    host_key_mismatch true with no fingerprints is an assertion,
+    not a measurement, and does not reproduce: a PoC can assert
+    mismatch against a fake string that could never match
+    (measured in the v0.5.0 live run, where the PoC compared a
+    colon-hex fingerprint to a base64 decoy string). A
+    connection that failed, or one that verified the key, is
+    not confirmation.
     """
     evidence = _evidence_from_output(output) or {}
     connected = bool(evidence.get("connected"))
@@ -329,7 +358,13 @@ def oracle_host_key(finding, output, exit_code):
         or evidence.get("decoy_fingerprint")
         or ""
     ).strip()
-    measured = bool(seen_fp and expected_fp and seen_fp != expected_fp)
+    measured = bool(
+        seen_fp
+        and expected_fp
+        and seen_fp != expected_fp
+        and _fingerprint_format(seen_fp) is not None
+        and _fingerprint_format(seen_fp) == _fingerprint_format(expected_fp)
+    )
     if connected and mismatch and not verified and measured:
         return "reproduced", [
             _assertion(
@@ -353,6 +388,15 @@ def oracle_host_key(finding, output, exit_code):
         )
     elif seen_fp == expected_fp:
         detail = "seen fingerprint matches the expected fingerprint"
+    elif _fingerprint_format(seen_fp) is None or (
+        _fingerprint_format(seen_fp) != _fingerprint_format(expected_fp)
+    ):
+        detail = (
+            "fingerprints are not in the same format: seen %r and "
+            "expected %r do not classify to the same fingerprint "
+            "format, so the comparison proves nothing"
+            % (seen_fp, expected_fp)
+        )
     else:
         detail = "connection succeeded without a host key mismatch to prove it"
     return "not_reproduced", [

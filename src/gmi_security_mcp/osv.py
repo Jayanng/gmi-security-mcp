@@ -16,6 +16,7 @@ advisory lists only a last_affected version and no fixed event,
 fixed_version is None and that is reported, not guessed.
 """
 
+import http.client
 import json
 import re
 import urllib.error
@@ -67,6 +68,16 @@ def _default_fetch(url, timeout=30):
             return 404, None
         raise RuntimeError("OSV API HTTP %s for %s" % (err.code, url))
     except urllib.error.URLError as err:
+        raise RuntimeError("OSV API request failed for %s: %s" % (url, err))
+    except (http.client.HTTPException, OSError, ValueError) as err:
+        # IncompleteRead, RemoteDisconnected, a dropped connection,
+        # and a non-JSON body are all request failures, not tool
+        # crashes: the caller turns a RuntimeError into a found
+        # false result with an error string. IncompleteRead is not
+        # a URLError subclass, so without this branch it escaped
+        # _default_fetch and crashed explain_cve in the MCP server
+        # (measured 2026-11-10: IncompleteRead 54656 bytes read,
+        # 6911 more expected, on CVE-2021-44228).
         raise RuntimeError("OSV API request failed for %s: %s" % (url, err))
 
 
