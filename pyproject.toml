@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmi-security-mcp"
+version = "0.1.0"
+description = "Security MCP server for coding agents: triage semgrep findings with GMI Inference, with cost shown before every run."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+dependencies = [
+    "mcp==2.3.0",
+]
+
+[project.scripts]
+gmi-security-mcp = "gmi_security_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+gmi_security_mcp = ["models-82.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

