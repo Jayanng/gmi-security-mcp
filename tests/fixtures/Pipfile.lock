@@ -1,0 +1,1 @@
+{"default":{"flask":{"version":">=3.0"},"requests":{"version":"==2.32.3"}},"develop":{"pytest":{"version":"==8.3.2"}}}

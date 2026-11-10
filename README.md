@@ -19,10 +19,23 @@ as the same finding triaged there.
 - `triage_semgrep_finding`: triage one semgrep or scanner finding.
   One validated verdict, with severity, confidence, reason, fix,
   stage used, latency, tokens, and cost.
+- `repo_scan`: scan a repo with semgrep and osv-scanner, then
+  two-stage triage of each finding. Returns a JSON report with
+  totals, per-finding verdicts, skipped findings with reasons,
+  the OSV section, and estimate versus actual cost. A dry run runs
+  the scanners and estimates the cost with no GMI calls.
+- `check_osv_advisory`: check one lockfile against OSV with the
+  local osv-scanner. Returns advisories as facts: id, package,
+  installed version, fixed version, severity, summary, and link.
+  No GMI call is made.
+- `explain_cve`: explain a CVE, GHSA, or OSV id from its OSV
+  advisory, with citations. When no advisory with that exact id
+  exists, returns found false and invents nothing. When a model
+  is named, GMI writes one plain-language paragraph from the
+  retrieved advisory only.
 - `estimate_cost`: estimate a run with no API call and no spend.
 
-Planned, not built yet: `repo_scan`, `check_osv_advisory`,
-`explain_cve`, and `draft_private_disclosure`. See DECISIONS.md.
+Planned, not built yet: `draft_private_disclosure`. See DECISIONS.md.
 
 ## Quick start
 
@@ -120,7 +133,97 @@ Two-stage rules: Stage 2 runs only when `two_stage` is true and
 Stage 1 confidence is below the threshold, or Stage 1 is unparsed,
 or Stage 1 errored. When Stage 2 fails, the Stage 1 verdict is kept
 and flagged as `escalation_failed`, not presented as two-stage
-verified.
+verified. A single-stage unparsed answer gets one retry with a
+shorter prompt, for non-reasoning models only. Reasoning-heavy
+models (DeepSeek, thinking, R1, reasoning) get no retry, and a
+warning is returned when one faces an input over about 3,000
+prompt tokens.
+
+### repo_scan
+
+Input:
+
+- `repo_path`: string, required, local directory, must exist
+- `stage1_model`, `stage2_model`: strings, required, no defaults
+- `threshold`: number, default 0.8, 0 to 1
+- `max_tokens`: integer, default 2500, one of 800, 1200, 2500
+- `spend_cap_usd`: number, default 1.00, at most 5.00
+- `semgrep_config`: string, default
+  `p/default,p/security-audit,p/python,p/javascript,p/secrets`
+- `include_tests`: boolean, default false
+- `max_files`: integer, default 10
+- `max_file_kb`: integer, default 40
+- `max_total_kb`: integer, default 200
+- `dry_run`: boolean, default false, scanners run, no GMI calls
+- `write_report`: string, optional, path for a Markdown report,
+  only if the user asked
+
+Output: a report object with `repo_path`, `files_scanned`,
+`findings_total`, `findings_real`, `findings_false_positive`,
+`findings_no_verdict`, `findings` (one validated object per
+finding, with file, line, rule id, check, verdict, severity,
+confidence, reason, fix, stage, cost), `skipped` (findings left
+out, with reasons), `osv` (lockfile results, separate section),
+`total_cost_usd`, `estimate_usd`, `max_estimate_usd`,
+`stopped_early`, and `errors`. When the remaining budget cannot
+cover the next finding, triage stops early and the report says so
+plainly. Findings in files over `max_file_kb` are skipped unless
+the caller raises the cap.
+
+Semgrep runs with one `--config` flag per config. A single flag
+with a comma-separated list is not valid semgrep input: semgrep
+treats the whole string as one config name, fails to download it,
+and returns zero findings. Measured 2026-11-10 on gmi-benchmark,
+ssh-mcp-server, and axios: the full default set returned exactly
+the same findings as `p/default` alone, so the extra configs add
+coverage in principle but no extra findings on those repos.
+
+Semgrep rule ids map to the 7 known checks by table plus keyword
+fallback. Unmapped rules report check `other`, never a known
+check they are not.
+
+### check_osv_advisory
+
+Input: `lockfile_path`, required, and `ecosystem`, optional,
+auto-detected from the filename when missing. Supported files:
+package-lock.json, package.json, requirements.txt,
+requirements.lock, Pipfile.lock, poetry.lock, go.mod, go.sum,
+Cargo.lock, Gemfile.lock, composer.lock.
+
+Output: `ecosystem`, `packages_scanned`, `packages_parsed`,
+`vulnerable_packages`, `advisories` (id, CVE alias when one
+exists, package, installed version, fixed version, severity,
+summary, link), and `unresolved_packages` with reasons. Packages
+with only a version range and no exact version are unresolved,
+never given a verdict. `package.json` and `go.sum` are parsed
+locally only: osv-scanner has no extractor for them. No GMI call
+is made, because an advisory is a fact from OSV, not a model
+opinion. A fixed version is reported only when the advisory
+states one. The deepmerge advisory for CVE-2026-93753 lists a
+last affected version of 4.3.1 and no fixed version, so that field
+is null, not guessed.
+
+### explain_cve
+
+Input: `advisory_id`, required (CVE-YYYY-NNNNN,
+GHSA-xxxx-xxxx-xxxx, or OSV id), `package` and `version`,
+optional, `stage1_model`, optional, `max_tokens`, default 2500,
+`spend_cap_usd`, default 1.00.
+
+Output: `found`, `advisory` (id, aliases, summary, details, CVSS
+score computed from the CVSS 3.1 vector when the record carries
+one, severity label, fixed versions from the advisory ranges,
+per-package affected info, references, publication date),
+`explanation`, `explanation_source` (`gmi` or `advisory`),
+`citations`, and `cost_usd`. When no advisory with the exact id
+exists, `found` is false and nothing is invented. When no model
+is named, the explanation is the advisory summary itself and no
+GMI call is made. The CVSS score is computed from the vector with
+the CVSS 3.1 formula, so Log4Shell CVE-2021-44228 reports 10.0.
+Its advisory fixed versions are 2.15.0, 2.3.1, and 2.12.2. The
+example text in this repo says upgrade to 2.17.1 or later, which
+is the recommended version covering the whole Log4Shell family,
+not the fixed version the advisory records for this CVE.
 
 ### estimate_cost
 
@@ -169,6 +272,17 @@ Real costs from live testing of the same prompts in the audit tool:
   5 completion tokens: $0.001397.
 - The 12 examples in `examples/` through this server with Gemini
   3.5 Flash Lite: under $0.02. See the test log for the actual run.
+- `repo_scan` on Jayanng/gmi-benchmark with Gemini Stage 1 and
+  Qwen 3.8 Flash Stage 2, default caps: $0.00, 0 findings triaged,
+  run_benchmark.py has 0 findings. With the file cap raised to
+  200 KB, 2 findings triaged, both false positive, $0.001227.
+- `repo_scan` on classfang/ssh-mcp-server with the file cap raised
+  to 100 KB: 13 findings triaged, all false positive, 0 unparsed,
+  $0.006877. The known host-key finding is not among them: semgrep
+  has no rule for missing SSH host key verification, so the scan
+  cannot return it. That is a scanner gap, recorded, not a pass.
+- `explain_cve` on CVE-2021-44228 with Gemini 3.5 Flash Lite:
+  $0.0010385.
 
 Every tool response includes the estimate made before the call and
 the actual cost from API usage, so the agent can show what a run
@@ -206,6 +320,16 @@ tool call. It cannot be raised above $5.00.
   inventing a price.
 - Editor coverage is untested in this phase. See the quick start
   note above.
+- Semgrep rules miss some flaws. The ssh-mcp-server host-key
+  finding is a missing-logic flaw no semgrep rule covers, so
+  repo_scan does not return it. A clean repo_scan means no
+  semgrep finding triaged real, not that the repo has no flaws.
+- osv-scanner needs exact versions and network access to the OSV
+  API. A lockfile with only ranges, or a machine that cannot reach
+  the OSV API, yields no dependency verdicts, and the report says
+  so instead of implying the dependencies are clean.
+- A fixed version is reported only when the advisory states one.
+  Some advisories list only a last affected version.
 
 ## Examples
 
@@ -223,7 +347,21 @@ python3 scripts/run-12-examples.py
 ```
 
 That script needs `GMI_API_KEY` set and spends under $0.02 with
-Gemini 3.5 Flash Lite. Unit tests need no key and no network:
+Gemini 3.5 Flash Lite. Scan a repo live with:
+
+```bash
+python3 scripts/run-repo-scan.py --repo /path/to/repo --dry-run
+python3 scripts/run-repo-scan.py --repo /path/to/repo
+```
+
+Check a lockfile and explain a CVE live with:
+
+```bash
+python3 scripts/run-osv-check.py --lockfile /path/package-lock.json
+python3 scripts/run-osv-check.py --explain CVE-2021-44228 --model google/gemini-3.5-flash-lite
+```
+
+Unit tests need no key and no network:
 
 ```bash
 python3 -m pytest tests/ -q
@@ -238,18 +376,32 @@ gmi-security-mcp/
   DATA_SOURCES.md
   pyproject.toml
   src/gmi_security_mcp/
-    server.py      stdio MCP server, the two tools
+    server.py      stdio MCP server, the five tools
     gmi.py         GMI client, timeout, retry, cost from usage
     prompts.py     TRIAGE_PROMPT, REPO_PROMPT, SYSTEM_ROLE, verbatim
     validate.py    balanced JSON extraction, verdict validation
     cost.py        pricing from models-82.json, estimates, cap check
     redact.py      secret redaction before any API call
+    scanners.py    semgrep and osv-scanner runs, rule to check map
+    lockfiles.py   lockfile parsing, exact versions only
+    osv.py         OSV API lookup, advisory summary, scanner parsing
+    cvss.py        CVSS 3.1 base score from a vector string
+    report.py      repo_scan JSON and Markdown report output
   tests/
     test_validate.py
     test_cost_redact.py
     test_server_logic.py
+    test_triage_retry.py
+    test_cvss.py
+    test_lockfiles.py
+    test_osv.py
+    test_scanners.py
+    test_repo_scan.py
+    fixtures/      small lockfiles for the parser tests
   scripts/
     run-12-examples.py   live test, 12 examples, real GMI calls
+    run-repo-scan.py     live test, repo_scan, real GMI calls
+    run-osv-check.py     live test, OSV tools, real GMI calls for explain
   models-82.json   pricing, 82 entries, 81 unique ids
   dataset.json     50 findings, 25 real, 25 false positive
   dataset-v2.json  56 findings, not run yet, no score claimed on it

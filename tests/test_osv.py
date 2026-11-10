@@ -1,0 +1,409 @@
+"""Unit tests for OSV lookup and osv-scanner parsing.
+
+No network. The OSV API is replaced with a stub fetcher serving
+canned records copied from the real OSV responses fetched
+2026-11-10. The osv-scanner fixture mirrors the real output seen
+on the bug-bounty machine for axios/package-lock.json.
+"""
+
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+import pytest
+
+from gmi_security_mcp import osv as osv_mod
+from gmi_security_mcp import server as srv
+
+PRICING = {
+    "google/gemini-3.5-flash-lite": (0.000000300, 0.000002500),
+    "Qwen/Qwen3.8-Flash": (0.000000160, 0.000000470),
+}
+CHEAP = "google/gemini-3.5-flash-lite"
+
+os.environ["GMI_API_KEY"] = "test-key-never-sent"
+
+LOG4J_CVE = {
+    "id": "CVE-2021-44228",
+    "details": "Apache Log4j2 2.0-beta9 through 2.15.0 JNDI features do not "
+    "protect against attacker controlled LDAP endpoints.",
+    "aliases": ["GHSA-jfh8-c2jp-5v3q"],
+    "severity": [
+        {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+        }
+    ],
+    "affected": [
+        {
+            "ranges": [
+                {
+                    "type": "GIT",
+                    "events": [
+                        {"introduced": "0"},
+                        {"fixed": "38513a7d57343881f7bf58f37e67d6a87e0a47c5"},
+                    ],
+                }
+            ]
+        }
+    ],
+    "published": "2021-12-10T10:15:09.143Z",
+    "references": [
+        {"type": "ADVISORY", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"}
+    ],
+}
+
+LOG4J_GHSA = {
+    "id": "GHSA-jfh8-c2jp-5v3q",
+    "summary": "Remote code injection in Log4j",
+    "severity": [
+        {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/E:H",
+        }
+    ],
+    "database_specific": {"severity": "CRITICAL"},
+    "affected": [
+        {
+            "package": {"ecosystem": "Maven", "name": "org.apache.logging.log4j:log4j-core"},
+            "ranges": [
+                {
+                    "type": "ECOSYSTEM",
+                    "events": [
+                        {"introduced": "2.13.0"},
+                        {"fixed": "2.15.0"},
+                    ],
+                }
+            ],
+        },
+        {
+            "package": {"ecosystem": "Maven", "name": "org.apache.logging.log4j:log4j-core"},
+            "ranges": [
+                {
+                    "type": "ECOSYSTEM",
+                    "events": [
+                        {"introduced": "2.0-beta9"},
+                        {"fixed": "2.3.1"},
+                    ],
+                }
+            ],
+        },
+        {
+            "package": {"ecosystem": "Maven", "name": "org.apache.logging.log4j:log4j-core"},
+            "ranges": [
+                {
+                    "type": "ECOSYSTEM",
+                    "events": [
+                        {"introduced": "2.4"},
+                        {"fixed": "2.12.2"},
+                    ],
+                }
+            ],
+        },
+    ],
+    "published": "2021-12-10T10:15:09.143Z",
+}
+
+DEEPMERGE_GHSA = {
+    "id": "GHSA-gcqx-w48m-w2h4",
+    "summary": "deepmerge mergeObject() allows prototype poisoning of returned objects",
+    "aliases": ["CVE-2026-93753"],
+    "severity": [
+        {
+            "type": "CVSS_V3",
+            "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+        }
+    ],
+    "database_specific": {"severity": "LOW"},
+    "affected": [
+        {
+            "package": {"ecosystem": "npm", "name": "deepmerge"},
+            "ranges": [
+                {
+                    "type": "SEMVER",
+                    "events": [
+                        {"introduced": "4.2.0"},
+                        {"last_affected": "4.3.1"},
+                    ],
+                }
+            ],
+        }
+    ],
+}
+
+
+def _fetcher_factory(records):
+    def _fetch(url, timeout=30):
+        advisory_id = url.rsplit("/", 1)[-1]
+        if advisory_id in records:
+            return 200, records[advisory_id]
+        return 404, None
+
+    return _fetch
+
+
+FETCHER = _fetcher_factory(
+    {
+        "CVE-2021-44228": LOG4J_CVE,
+        "GHSA-jfh8-c2jp-5v3q": LOG4J_GHSA,
+        "GHSA-gcqx-w48m-w2h4": DEEPMERGE_GHSA,
+    }
+)
+
+OSV_SCANNER_FIXTURE = {
+    "results": [
+        {
+            "source": {"path": "package-lock.json", "type": "lockfile"},
+            "packages": [
+                {
+                    "package": {
+                        "name": "deepmerge",
+                        "version": "4.3.1",
+                        "ecosystem": "npm",
+                    },
+                    "groups": [
+                        {
+                            "ids": ["GHSA-gcqx-w48m-w2h4"],
+                            "aliases": ["CVE-2026-93753", "GHSA-gcqx-w48m-w2h4"],
+                            "max_severity": "5.3",
+                        }
+                    ],
+                    "vulnerabilities": [
+                        {
+                            "id": "GHSA-gcqx-w48m-w2h4",
+                            "aliases": ["CVE-2026-93753"],
+                            "summary": "deepmerge mergeObject() allows prototype poisoning",
+                            "affected": [
+                                {
+                                    "package": {
+                                        "ecosystem": "npm",
+                                        "name": "deepmerge",
+                                    },
+                                    "ranges": [
+                                        {
+                                            "type": "SEMVER",
+                                            "events": [
+                                                {"introduced": "4.2.0"},
+                                                {"last_affected": "4.3.1"},
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "package": {
+                        "name": "minimatch",
+                        "version": "10.2.6",
+                        "ecosystem": "npm",
+                    },
+                    "groups": [
+                        {
+                            "ids": ["GHSA-g3hv-75wg-m249"],
+                            "aliases": ["CVE-2026-118764", "GHSA-g3hv-75wg-m249"],
+                            "max_severity": "6.9",
+                        }
+                    ],
+                    "vulnerabilities": [
+                        {
+                            "id": "GHSA-g3hv-75wg-m249",
+                            "aliases": ["CVE-2026-118764"],
+                            "summary": "minimatch has potential denial of service",
+                            "affected": [
+                                {
+                                    "package": {
+                                        "ecosystem": "npm",
+                                        "name": "minimatch",
+                                    },
+                                    "ranges": [
+                                        {
+                                            "type": "SEMVER",
+                                            "events": [
+                                                {"introduced": "7.0.0"},
+                                                {"fixed": "11.0.1"},
+                                            ],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "package": {
+                        "name": "clean-pkg",
+                        "version": "1.0.0",
+                        "ecosystem": "npm",
+                    },
+                    "vulnerabilities": [],
+                },
+            ],
+        }
+    ]
+}
+
+
+def test_normalise_advisory_id():
+    assert osv_mod.normalise_advisory_id("CVE-2021-44228") == "CVE-2021-44228"
+    assert osv_mod.normalise_advisory_id("ghsa-jfh8-c2jp-5v3q") == "GHSA-jfh8-c2jp-5v3q"
+    assert osv_mod.normalise_advisory_id("cve-2026-93753") == "CVE-2026-93753"
+    assert osv_mod.normalise_advisory_id("made-up-123") is None
+    assert osv_mod.normalise_advisory_id("CVE-2021-442") is None
+    assert osv_mod.normalise_advisory_id("") is None
+
+
+def test_fetch_advisory_found_and_missing():
+    record = osv_mod.fetch_advisory("CVE-2021-44228", fetcher=FETCHER)
+    assert record["id"] == "CVE-2021-44228"
+    assert osv_mod.fetch_advisory("CVE-2021-99999", fetcher=FETCHER) is None
+    with pytest.raises(ValueError, match="not a recognised advisory id"):
+        osv_mod.fetch_advisory("not-an-id", fetcher=FETCHER)
+
+
+def test_summarize_log4shell_cvss_10_and_fixed():
+    summary = osv_mod.summarize_advisory(LOG4J_CVE, [LOG4J_GHSA])
+    assert summary["cvss_score"] == 10.0
+    assert summary["severity_label"] == "CRITICAL"
+    assert "2.15.0" in summary["fixed_versions"]
+    assert "2.3.1" in summary["fixed_versions"]
+    assert "2.12.2" in summary["fixed_versions"]
+    assert "GHSA-jfh8-c2jp-5v3q" in summary["aliases"]
+    # Commit hashes from GIT ranges are not versions.
+    assert not any(
+        len(v) == 40 for v in summary["fixed_versions"]
+    )
+
+
+def test_summarize_deepmerge_no_fixed_version():
+    summary = osv_mod.summarize_advisory(DEEPMERGE_GHSA)
+    assert summary["cvss_score"] == 5.3
+    assert summary["fixed_versions"] == []
+    affected = summary["affected"][0]
+    assert affected["last_affected_versions"] == ["4.3.1"]
+
+
+def test_parse_osv_scanner_output_axios_pair():
+    advisories, scanned, vulnerable = osv_mod.parse_osv_scanner_output(
+        OSV_SCANNER_FIXTURE
+    )
+    assert scanned == 3
+    assert vulnerable == 2
+    assert len(advisories) == 2
+    by_id = {a["id"]: a for a in advisories}
+    deepmerge = by_id["CVE-2026-93753"]
+    assert deepmerge["package"] == "deepmerge"
+    assert deepmerge["installed_version"] == "4.3.1"
+    assert deepmerge["osv_id"] == "GHSA-gcqx-w48m-w2h4"
+    assert deepmerge["fixed_version"] is None
+    assert deepmerge["last_affected_version"] == "4.3.1"
+    assert deepmerge["cvss_score"] == 5.3
+    minimatch = by_id["CVE-2026-118764"]
+    assert minimatch["package"] == "minimatch"
+    assert minimatch["installed_version"] == "10.2.6"
+    assert minimatch["fixed_version"] == "11.0.1"
+    assert minimatch["cvss_score"] == 6.9
+
+
+def test_explain_cve_made_up_id_returns_found_false():
+    result = srv.explain_cve_impl("CVE-2021-99999", fetcher=FETCHER)
+    assert result["found"] is False
+    assert "advisory" not in result
+
+
+def test_explain_cve_bad_format_returns_found_false():
+    result = srv.explain_cve_impl("not-a-cve", fetcher=FETCHER)
+    assert result["found"] is False
+
+
+def test_explain_cve_log4shell_no_model_uses_advisory_summary():
+    result = srv.explain_cve_impl("CVE-2021-44228", fetcher=FETCHER)
+    assert result["found"] is True
+    advisory = result["advisory"]
+    assert advisory["id"] == "CVE-2021-44228"
+    assert advisory["cvss_score"] == 10.0
+    assert "2.15.0" in advisory["fixed_versions"]
+    assert "CVE-2021-44228" in result["citations"]
+    assert "2.15.0" in " ".join(result["citations"])
+    assert result["explanation_source"] == "advisory"
+    assert "Log4j" in (result["explanation"] or "")
+
+
+def test_explain_cve_with_model_calls_gmi_once():
+    calls = []
+
+    def _chat(model, system_content, user_content, max_tokens=2500):
+        calls.append(model)
+        assert "CVE-2021-44228" in user_content
+        return {
+            "content": "Log4Shell lets an attacker run code via JNDI lookups. "
+            "Upgrade Log4j to 2.15.0 or later. (CVE-2021-44228)",
+            "latency_seconds": 0.5,
+            "usage": {"prompt_tokens": 300, "completion_tokens": 30},
+            "error": None,
+            "retried": False,
+            "timeout": False,
+        }
+
+    result = srv.explain_cve_impl(
+        "CVE-2021-44228",
+        stage1_model=CHEAP,
+        fetcher=FETCHER,
+        chat_fn=_chat,
+        pricing=PRICING,
+    )
+    assert result["found"] is True
+    assert result["explanation_source"] == "gmi"
+    assert "CVE-2021-44228" in result["explanation"]
+    assert result["cost_usd"] is not None and result["cost_usd"] > 0
+    assert calls == [CHEAP]
+
+
+def test_check_osv_advisory_with_stub_scanner(tmp_path):
+    lockfile = tmp_path / "package-lock.json"
+    lockfile.write_text(
+        '{"lockfileVersion":3,"packages":{'
+        '"node_modules/deepmerge":{"version":"4.3.1"},'
+        '"node_modules/minimatch":{"version":"10.2.6"}}}'
+    )
+
+    def _runner(cmd, timeout):
+        import json as _json
+
+        assert cmd[0] == "osv-scanner"
+        return 1, _json.dumps(OSV_SCANNER_FIXTURE), ""
+
+    result = srv.check_osv_impl(str(lockfile), osv_runner=_runner)
+    assert result["error"] is None
+    assert result["ecosystem"] == "npm"
+    assert result["packages_parsed"] == 2
+    assert result["packages_scanned"] == 2
+    assert result["vulnerable_packages"] == 2
+    ids = [a["id"] for a in result["advisories"]]
+    assert "CVE-2026-93753" in ids
+    assert "CVE-2026-118764" in ids
+
+
+def test_check_osv_advisory_missing_scanner_reports_error(tmp_path):
+    lockfile = tmp_path / "package-lock.json"
+    lockfile.write_text(
+        '{"lockfileVersion":3,"packages":{'
+        '"node_modules/deepmerge":{"version":"4.3.1"}}}'
+    )
+
+    def _runner(cmd, timeout):
+        raise RuntimeError("scanner binary not found: osv-scanner")
+
+    result = srv.check_osv_impl(str(lockfile), osv_runner=_runner)
+    assert result["advisories"] == []
+    assert "not found" in (result["error"] or "")
+    assert result["packages_parsed"] == 1
+
+
+def test_check_osv_advisory_missing_file():
+    result = srv.check_osv_impl("/tmp/does-not-exist-package-lock.json")
+    assert result["advisories"] == []
+    assert result["error"]

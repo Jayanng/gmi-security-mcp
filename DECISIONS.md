@@ -120,9 +120,74 @@ https://github.com/codecrunchworldwide/c6-cybersecurity-crunch/blob/HEAD/curricu
 and the ECMWF PVR procedure at
 https://github.com/ecmwf/codex/blob/HEAD/Guidelines/Security-Vulnerability-Disclosure.md
 
+## 7. Semgrep config measured, Phase 2, 2026-11-10
+
+Measured on the build machine with semgrep 1.184.0, separate
+`--config` flags, on three real repos:
+
+- gmi-benchmark: `p/default` 2 findings, full default set 2
+  findings, both `html.security.audit.missing-integrity` WARNING
+  in index.html.
+- ssh-mcp-server: `p/default` 15 findings, full set 15 findings
+  (12 path-traversal, 3 non-literal-regexp). Two are in test files
+  and repo_scan excludes them by default, leaving 13.
+- axios: `p/default` 20 findings, full set 20 findings.
+
+The full set adds nothing over `p/default` alone on these three
+repos, but the default stays
+`p/default,p/security-audit,p/python,p/javascript,p/secrets`,
+because the research in section 5 says the wider set adds
+coverage in principle, and the measured cost of the extra rules
+here is zero extra findings to triage.
+
+One real bug caught by the measurement: a single `--config` flag
+with a comma-separated list is NOT valid semgrep input. Semgrep
+treats the whole string as one config name, fails to download it
+(HTTP 404), and returns zero findings with the error buried in
+its JSON output. The server always splits the list and passes one
+`--config` flag per entry, and the unit tests assert no comma
+appears in a config flag.
+
+## 8. explain_cve model is optional, Phase 3, 2026-11-10
+
+The plan schema for explain_cve has no model field, but the
+behaviour says GMI writes the explanation, and the no-model
+rule says no model is pre-selected. The tool takes an optional
+`stage1_model`: when one is named, GMI writes one paragraph from
+the retrieved advisory only; when none is named, the explanation
+is the advisory summary itself, marked as advisory text, and no
+GMI call is made. The advisory data is identical either way.
+
+## 9. Fixed versions come from the advisory, gaps recorded, Phase 3
+
+- deepmerge CVE-2026-93753: the GHSA record lists introduced
+  4.2.0 and last affected 4.3.1, with no fixed event. The tool
+  returns fixed_version null for it, not a guessed 4.3.2.
+- minimatch CVE-2026-118764: the GHSA record lists fixed 11.0.1.
+- Log4Shell CVE-2021-44228: the OSV CVE record carries only GIT
+  ranges and a CVSS vector with no numeric score. The GHSA alias
+  record carries the Maven ranges with fixed 2.15.0, 2.3.1, and
+  2.12.2, and the same vector. The tool fetches alias records and
+  merges them, and computes CVSS 10.0 from the vector with the
+  CVSS 3.1 formula. The plan acceptance says fixed 2.17.1: that
+  is the recommended upgrade in our own example text, covering the
+  whole Log4Shell family, not the fixed version the advisory
+  records for this CVE. The tool reports the advisory faithfully
+  and the gap is recorded here and in the audit note.
+
+## 10. osv-scanner network behaviour differs by machine, Phase 3
+
+osv-scanner works on the bug-bounty machine, where it returned
+both axios advisories. On the build machine (this VM) its POST to
+https://api.osv.dev/v1/querybatch times out, while GETs to the
+same host work, so a local osv-scanner run fails after retries
+and the tool reports the failure instead of claiming clean. The
+check_osv_advisory acceptance run was therefore done on the
+bug-bounty machine. Users run the server on their own machines,
+where the OSV API is reachable.
+
 ## Open items
 
 - Registry publish (Phase 7): needs a PyPI release first.
-- Semgrep default (Phase 2): measure the chosen set on real repos.
 - Disclosure drafting (Phase 4): build the tool from the template
   chosen here.
