@@ -1,0 +1,33 @@
+rules:
+  - id: custom.xss-user-input-to-html-sink
+    languages: [javascript, typescript, python]
+    severity: ERROR
+    message: >-
+      User input reaches an HTML sink with no escaping in the
+      code shown. Reflection alone is not proof of execution,
+      but unescaped input in a sink is the flaw.
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: res.send($X)
+              - pattern: res.write($X)
+              - pattern: $EL.innerHTML = $X
+              - pattern: document.write($X)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: escape(...)
+              - pattern: html.escape(...)
+              - pattern: DOMPurify.sanitize(...)
+              - pattern: encodeHTML(...)

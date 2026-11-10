@@ -579,6 +579,170 @@ Decisions:
   See SPEND.md and live-12-results-2026-11-10-phaseA2.json
   and live-dataset50-results-2026-11-10-phaseA2.json.
 
+## 20. Phase A3, custom rules and scope, v0.5.0, 2026-11-10
+
+- Custom semgrep rules pack in `rules/`, one YAML file per
+  rule, 8 rules: ssh-missing-host-key-verification (highest
+  priority), missing-auth, missing-crypto-verification,
+  hardcoded-secret, ssrf-user-input-to-fetch,
+  path-traversal-user-input-to-file, sqli-user-input-to-query,
+  xss-user-input-to-html-sink. Each maps to one of the 7 known
+  checks; the host-key rule carries the check string
+  "Missing SSH host key verification", the wording the
+  host-key oracle matches on. Severity in list_rules is the
+  semgrep YAML severity as-is (WARNING/ERROR), not a mapped
+  triage severity.
+- Semgrep custom-rule practice, measured, not assumed. Sources:
+  semgrep.dev docs on custom rules (patterns, pattern-either,
+  pattern-not, metavariable-regex, taint mode, fixtures) and
+  the semgrep rule registry. Findings from testing, all
+  reproduced with semgrep 1.184.0: a plain-scalar YAML pattern
+  containing `{...}` breaks YAML parsing and invalidates the
+  whole config, silently returning 0 findings, so all `{...}`
+  patterns use block scalars; metavariable-regex is a
+  full match on the metavariable text, not a substring, so
+  secret-shape regexes need `.*...*` wrapping; a rule listing
+  several languages silently stops matching when any pattern
+  does not parse in every listed language, so rules use
+  language-neutral patterns plus pattern-regex; in taint mode
+  a sink fires when tainted data reaches any part of the sink
+  call, so multi-argument sinks need focus-metavariable on
+  the dangerous argument; semgrep prefixes rule ids with the
+  config directory basename, so the loader strips by
+  suffix-match against known ids; --config takes separate
+  flags per config, never a comma list, which 404s and
+  silently returns 0 findings (bug caught in v0.4.0).
+- Host-key rule, final version: the readyTimeout object-
+  literal branch only, plus an inline connect branch and
+  Python paramiko AutoAddPolicy branches. The password and
+  privateKey branches were dropped: they matched app-level
+  SSHConfig construction sites in command-line-parser.ts,
+  false positives on the fixed branch. Exclusions:
+  pattern-not-regex for hostVerifier/knownHosts/
+  trustedHostKey, three pattern-not-inside blocks for
+  post-literal assignment of those fields, and a
+  parseArgs exclusion for CLI option definitions. Measured:
+  1 hit on real vulnerable ssh-mcp-server src (line 1710,
+  true positive), 0 hits on the real fixed branch src, fires
+  on the vulnerable fixture and silent on the fixed fixture
+  in TS and Python. Known limit: a minimal ssh2 config
+  literal with no readyTimeout and no inline connect is
+  missed; recorded in rules/README.md.
+- Precision measured on test repos, semgrep 1.184.0,
+  2026-11-10: whole pack returns exactly 1 hit across
+  ssh-mcp-server src and gmi-benchmark-test, the host-key
+  true positive. No rule is over the 50% false-positive bar,
+  so all 8 are enabled by default. The auth rule flags a
+  public route by design (it cannot tell a public route from
+  an unprotected admin route); recorded as a known false
+  positive, triage decides.
+- New module src/gmi_security_mcp/rules.py: RULES registry,
+  strip_rule_prefix, find_rules_dir (explicit path, then
+  GMI_SECURITY_MCP_RULES_DIR env, then walk-up from the
+  file; an explicit path or env value that does not contain
+  the pack is authoritative and returns None instead of
+  silently falling back), load_rules (registry checked
+  against YAML, errors on a missing dir, unparseable YAML,
+  or an id mismatch), list_rules.
+- New module src/gmi_security_mcp/scope.py: scope file
+  {"in_scope": [...], "out_of_scope": [...]}, hostnames
+  case-insensitive, leading *. wildcard only, IPv4 CIDR
+  supported, IPv6 CIDR refused with a clear message, exact-
+  host rules allow any path and port, exclusions always win,
+  empty allowlist denies all. Scope is a destination policy,
+  NOT authorisation to test, NOT an OS sandbox; said so in
+  the tool result and the README. A scope file alone never
+  activates checks; only scope_enable does. --require-scope
+  and env GMI_REQUIRE_SCOPE=1 fail closed. In v0.5.0 scope
+  applies to repo_scan, verify_finding, and any tool reading
+  a repo path or running a PoC, and draft_private_disclosure
+  when writing a file: a repo-path and PoC boundary, not a
+  live-web boundary, no live web tool yet. --allow-apply
+  double gate: any tool call that writes a file needs
+  --allow-apply (or env GMI_ALLOW_APPLY=1) plus the exact
+  candidate in the call; portable workflow JSON cannot grant
+  it, because the tools take no allow_apply parameter.
+  Engagement profiles standard 5 rps and conservative 1 rps,
+  full jitter; the limiter guarantees the gap between GMI
+  calls is at least the profile interval, so the rate is
+  never exceeded. In v0.5.0 the rate limit applies to GMI
+  calls, no live web calls yet. Docker executor option
+  documented, not default; when Docker is unavailable the
+  PoC runner refuses clearly, never silently chooses host.
+- The --allow-apply gate sits in the MCP wrappers, not the
+  impls, so the A1 impl tests stay green and the tool is the
+  product boundary. repo_scan with write_report and no
+  --allow-apply refuses the whole call. The rate limiter
+  lives in scope.py and is hooked into gmi.chat before the
+  POST; a throttle failure never blocks the call.
+- repo_scan change: the custom pack runs as its own --config
+  value in addition to the unchanged default config set
+  (p/default, p/security-audit, p/python, p/javascript,
+  p/secrets). Custom findings go through the same path
+  resolution, exclusion, and dedup as default findings, are
+  tagged source custom-rule with the bare rule id, and are
+  merged before triage. A custom finding the default run
+  already reported (same rule, file, line) is dropped, so
+  one finding is never triaged twice. A missing pack warns
+  and the default scan continues; a custom run that errors
+  reports errors, never an empty list passed off as clean.
+- New tools, total 15: list_rules (no GMI call, $0),
+  scope_enable (scope_file + repo_path), scope_disable
+  (repo_path). Keep enable and disable separate, never one
+  tool doing both. Counted in a test, not guessed.
+- Tests: 42 new (18 in tests/test_rules.py, 24 in
+  tests/test_scope.py), 257 total, all pass. Per-rule
+  fixture tests run the real semgrep binary (1.184.0) and
+  assert each rule fires on its vulnerable fixtures and is
+  silent on its fixed fixtures. The repo_scan MockLLM test
+  returns the host-key finding with source custom-rule and
+  stores it. The scope tests cover in/out, exclusion-wins,
+  empty allowlist, IPv4 CIDR, IPv6 refusal, wildcard,
+  explicit-enable-only, the --require-scope gate, the
+  --allow-apply double gate on all three writing tools, the
+  Docker-unavailable refusal, and the rate limiter with a
+  fake clock. One test-ordering bug found and fixed during
+  the run: a scope test set GMI_REQUIRE_SCOPE directly on
+  os.environ, which leaked into later test files; it now
+  uses monkeypatch.setenv. A rules test found a real loader
+  bug: find_rules_dir fell back to the checkout pack when
+  an explicit rules_dir did not exist; explicit paths are
+  now authoritative. A test found a real merge bug: the
+  custom run reused the stub default runner in tests and
+  doubled the findings; the merged list now dedups across
+  runs.
+- Live results, 2026-11-10: one repo_scan on
+  classfang/ssh-mcp-server with the custom pack, Gemini
+  google/gemini-3.5-flash-lite Stage 1 only (same model as
+  Stage 2), estimate typical $0.0221956 max $0.1796956 from
+  --dry-run, actual $0.005798, 14 findings triaged (13
+  default + 1 custom), 0 real, 13 false_positive, 1
+  no_verdict (ssh-config-parser.ts:222, both stages returned
+  no valid JSON verdict). The custom rule found the known
+  host-key flaw at line 1710, stored as
+  fnd_758e44abf1d74cb8, but Gemini triaged it false_positive
+  at confidence 0.9. The triage prompt frames real as
+  untrusted input reaching a dangerous sink, and a missing-
+  verification flaw is not a tainted flow. The prompt was
+  not reworded and the scan was not re-run. verify_finding
+  refused a confirmation run by design (stored verdict
+  false_positive); the run used regression_check=true. PoC
+  generation attempt 1 was unparsed ($0.000815); one retry
+  of a failed generation succeeded ($0.000812). The oracle
+  reproduced (assertion wrong_host_key_connection_succeeded
+  passed), status reproduced, confirmed false, stored as
+  verification ver_800c64d591894259. The finding stays
+  triaged/false_positive by design. Total A3 live $0.007425.
+  See SPEND.md and AUDIT-2026-11-10-phaseA3.md. The A3
+  acceptance chain stops at triage: rule found it, triage
+  missed it, oracle reproduced it. Follow-up decision needed
+  on a missing-verification clause in the triage prompt,
+  dataset-tested before it ships.
+- /tmp on this VM is a 512M tmpfs and was wiped between
+  commands during this session (all /tmp run scripts lost,
+  including the A1/A2 scripts). Live-run scripts now live
+  in ~/workspace/gmi-clouder/.scratch/, not /tmp.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and
@@ -587,3 +751,15 @@ Decisions:
   device-flow login. See section 17 for the exact next steps.
 - Disclosure drafting (Phase 4): build the tool from the template
   chosen here.
+- Phase A3 triage miss (Medium): the triage prompt frames real
+  as a tainted flow, so missing-verification flaws such as the
+  ssh-mcp-server host-key finding triage false_positive while
+  the oracle reproduces them. Follow-up decision needed on a
+  missing-verification clause in the triage prompt, tested
+  against the 50-finding dataset before it ships. The prompt
+  carries a do-not-reword instruction, so this needs a
+  deliberate decision, not a quiet edit. See section 20 and
+  AUDIT-2026-11-10-phaseA3.md finding 1.
+- Phase A3 scope nit (Low): a scope file entry with a port
+  (example.com:443) is refused with an IPv6 message. Misleading
+  text, fail-closed. See AUDIT-2026-11-10-phaseA3.md finding 2.

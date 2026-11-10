@@ -28,6 +28,7 @@ from pathlib import Path
 
 from . import lockfiles as lockfiles_mod
 from . import osv as osv_mod
+from . import rules as rules_mod
 
 DEFAULT_SEMGREP_CONFIG = "p/default,p/security-audit,p/python,p/javascript,p/secrets"
 DEFAULT_SEMGREP_CONFIGS = [
@@ -63,6 +64,24 @@ RULE_CHECK_MAP = {
     "package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age": "other",
     "javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration": "other",
     "javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring": "other",
+    # Custom rules pack, Phase A3 (v0.5.0), rules/*.yaml. The
+    # host-key rule maps to the check string the host-key oracle
+    # matches on, not to one of the 7 known checks, because the
+    # oracle keys off the wording "host key".
+    "custom.ssh-missing-host-key-verification": (
+        "Missing SSH host key verification"
+    ),
+    "custom.missing-auth": "Authentication and session flaws",
+    "custom.missing-crypto-verification": "Weak cryptography",
+    "custom.hardcoded-secret": "Hardcoded secrets",
+    "custom.ssrf-user-input-to-fetch": (
+        "Server-side request forgery (SSRF)"
+    ),
+    "custom.path-traversal-user-input-to-file": "Path traversal",
+    "custom.sqli-user-input-to-query": "SQL injection",
+    "custom.xss-user-input-to-html-sink": (
+        "Cross-site scripting (XSS)"
+    ),
 }
 
 _CHECK_KEYWORDS = [
@@ -88,12 +107,19 @@ _CHECK_KEYWORDS = [
 
 
 def map_rule_to_check(rule_id):
-    """Map a semgrep rule id to one of the 7 known checks, or other."""
+    """Map a semgrep rule id to one of the 7 known checks, or other.
+
+    Custom-rule ids arrive with the config directory prefix
+    (rules.custom....), so the prefix is stripped first.
+    """
     if not rule_id:
         return "other"
+    stripped = rules_mod.strip_rule_prefix(rule_id)
+    if stripped in RULE_CHECK_MAP:
+        return RULE_CHECK_MAP[stripped]
     if rule_id in RULE_CHECK_MAP:
         return RULE_CHECK_MAP[rule_id]
-    lowered = rule_id.lower()
+    lowered = str(rule_id).lower()
     for keyword, check in _CHECK_KEYWORDS:
         if keyword in lowered:
             return check
@@ -193,6 +219,45 @@ def run_semgrep(repo_path, configs=None, timeout=SEMGREP_TIMEOUT_SECONDS,
                 % (returncode, (stderr or stdout)[:500])
             )
         raise
+
+
+def run_semgrep_custom_rules(repo_path, rules_dir, timeout=SEMGREP_TIMEOUT_SECONDS,
+                             runner=None, binary="semgrep"):
+    """Run the custom rules pack on a repo path. Returns (findings, errors).
+
+    The rules directory is passed as its own --config value, never
+    as part of a comma list. Each finding carries source
+    custom-rule and the bare rule id (the config directory prefix
+    semgrep adds is stripped). A config error is returned in
+    errors, never as an empty finding list: a custom-rules run
+    that errors is an error, not a clean scan.
+    """
+    if rules_dir is None:
+        return [], ["custom rules pack not found, see list_rules"]
+    cmd = [
+        binary, "scan", "--config", str(rules_dir),
+        "--json", "--quiet", str(repo_path),
+    ]
+    run = runner or _default_runner
+    try:
+        returncode, stdout, stderr = run(cmd, timeout)
+    except RuntimeError as err:
+        return [], [str(err)]
+    if returncode not in (0, 1):
+        return [], [
+            "custom rules semgrep exited %d: %s"
+            % (returncode, (stderr or stdout)[:500])
+        ]
+    try:
+        findings, errors = _parse_semgrep_json(stdout)
+    except RuntimeError as err:
+        return [], [str(err)]
+    for finding in findings:
+        finding["rule_id"] = rules_mod.strip_rule_prefix(
+            finding.get("rule_id")
+        )
+        finding["source"] = "custom-rule"
+    return findings, errors
 
 
 def deduplicate_findings(findings):

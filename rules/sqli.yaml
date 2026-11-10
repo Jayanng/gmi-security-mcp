@@ -1,0 +1,41 @@
+rules:
+  - id: custom.sqli-user-input-to-query
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: >-
+      User input reaches a database query string with no
+      parameterisation in the code shown. A parameterised query
+      with a separate parameters argument does not match.
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CURSOR.execute($QUERY)
+              - patterns:
+                  - pattern: $CURSOR.execute($QUERY, $PARAMS)
+                  - focus-metavariable: $QUERY
+              - pattern: $DB.query($QUERY)
+              - patterns:
+                  - pattern: $DB.query($QUERY, $CB)
+                  - focus-metavariable: $QUERY
+              - patterns:
+                  - pattern: $DB.query($QUERY, $PARAMS, $CB)
+                  - focus-metavariable: $QUERY
+              - pattern: $DB.execute($QUERY)
+              - pattern: $CONN.query($QUERY)
+              - pattern: $POOL.query($QUERY)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: int(...)
+              - pattern: float(...)

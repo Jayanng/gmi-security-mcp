@@ -1,0 +1,46 @@
+rules:
+  - id: custom.ssh-missing-host-key-verification
+    languages: [javascript, typescript, python]
+    severity: WARNING
+    message: >-
+      SSH client configuration has no host key verification: no
+      hostVerifier, knownHosts, or trustedHostKey. The client
+      accepts any host key, so any server can impersonate the
+      configured host.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              {
+                host: $HOST,
+                ...,
+                username: $USER,
+                ...,
+                readyTimeout: $T,
+              }
+          - pattern: |
+              $CLIENT.connect({host: $HOST, ..., username: $USER})
+          - pattern: $CLIENT.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+          - pattern: $CLIENT.set_missing_host_key_policy(AutoAddPolicy())
+      - pattern-not-regex: hostVerifier
+      - pattern-not-regex: knownHosts
+      - pattern-not-regex: trustedHostKey
+      - pattern-not-inside: |
+          function $F(...) {
+            ...
+            $CFG.hostVerifier = ...;
+            ...
+          }
+      - pattern-not-inside: |
+          function $F(...) {
+            ...
+            $CFG.knownHosts = ...;
+            ...
+          }
+      - pattern-not-inside: |
+          function $F(...) {
+            ...
+            $CFG.trustedHostKey = ...;
+            ...
+          }
+      - pattern-not-inside: |
+          parseArgs(...)

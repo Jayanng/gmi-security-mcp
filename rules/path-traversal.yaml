@@ -1,0 +1,40 @@
+rules:
+  - id: custom.path-traversal-user-input-to-file
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: >-
+      User input reaches a file open or path join with no
+      base-directory check in the code shown. An attacker can
+      read files outside the intended directory.
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open($PATH)
+              - patterns:
+                  - pattern: open($PATH, ...)
+                  - focus-metavariable: $PATH
+              - pattern: os.path.join($BASE, $PATH)
+              - patterns:
+                  - pattern: fs.readFile($PATH, ...)
+                  - focus-metavariable: $PATH
+              - pattern: fs.readFileSync($PATH)
+              - pattern: fs.createReadStream($PATH)
+              - pattern: path.join($BASE, $PATH)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: os.path.basename(...)
+              - pattern: path.basename(...)
+              - pattern: safe_join(...)
+              - pattern: safeJoin(...)

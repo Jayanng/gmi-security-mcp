@@ -1,0 +1,17 @@
+rules:
+  - id: custom.missing-crypto-verification
+    languages: [javascript, typescript, python]
+    severity: ERROR
+    message: >-
+      Token or signature used without verification: jwt.decode
+      does not verify a signature, a verify call with
+      ignoreExpiration true skips expiry, and a decode with
+      verify_signature false skips verification entirely.
+    pattern-either:
+      - pattern: $JWT.decode($TOKEN)
+      - patterns:
+          - pattern: $JWT.verify($TOKEN, $KEY, $OPTS)
+          - pattern-regex: ignoreExpiration\s*:\s*true
+      - patterns:
+          - pattern: jwt.decode($TOKEN, ...)
+          - pattern-regex: verify_signature.{0,30}False|verify\s*=\s*False

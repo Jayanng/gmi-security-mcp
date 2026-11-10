@@ -1,0 +1,42 @@
+rules:
+  - id: custom.ssrf-user-input-to-fetch
+    languages: [javascript, typescript, python]
+    severity: ERROR
+    message: >-
+      User input reaches a fetch or request call with no
+      allowlist check in the code shown. An attacker can make
+      the server request internal addresses.
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fetch($URL)
+              - pattern: axios.get($URL)
+              - patterns:
+                  - pattern: axios.post($URL, ...)
+                  - focus-metavariable: $URL
+              - pattern: requests.get($URL)
+              - patterns:
+                  - pattern: requests.post($URL, ...)
+                  - focus-metavariable: $URL
+              - pattern: urllib.request.urlopen($URL)
+              - pattern: http.get($URL)
+              - pattern: https.get($URL)
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: validateUrl(...)
+              - pattern: validate_url(...)
+              - pattern: is_allowed_url(...)
+              - pattern: isAllowedUrl(...)
+              - pattern: check_url_allowlist(...)

@@ -34,6 +34,8 @@ def build_report(**fields):
         "dry_run": fields.get("dry_run", False),
         "errors": fields.get("errors", []),
         "warnings": fields.get("warnings", []),
+        "custom_rules": fields.get("custom_rules"),
+        "scope_enabled": fields.get("scope_enabled", False),
     }
     return report
 
@@ -41,9 +43,10 @@ def build_report(**fields):
 def _md_finding(finding):
     esc = validate_mod.esc
     verdict = finding.get("verdict") or "no verdict"
+    source = finding.get("source") or "default"
     return (
         "- **%s:%s** (%s) - %s, %s, confidence %s\n"
-        "  Rule: `%s`. %s\n"
+        "  Rule: `%s` (%s). %s\n"
         "  Fix: %s\n"
         "  Stage: %s, cost $%.6f\n"
         % (
@@ -54,6 +57,7 @@ def _md_finding(finding):
             esc(str(finding.get("severity") or "low")),
             esc(str(finding.get("confidence"))),
             esc(str(finding.get("rule_id"))),
+            esc(str(source)),
             esc(str(finding.get("reason") or finding.get("error") or "")),
             esc(str(finding.get("fix") or "")),
             esc(str(finding.get("stage_used") or finding.get("stage") or "")),
@@ -90,6 +94,16 @@ def report_to_markdown(report):
         report.get("estimate_usd"),
         report.get("max_estimate_usd"),
     ))
+    custom = report.get("custom_rules") or {}
+    if custom.get("enabled"):
+        lines.append(
+            "- Custom rules: %d findings from %s"
+            % (custom.get("findings", 0), esc(str(custom.get("dir"))))
+        )
+    else:
+        lines.append("- Custom rules: not run, pack not found.")
+    if report.get("scope_enabled"):
+        lines.append("- Scope: enabled for this repo.")
     if report.get("stopped_early"):
         lines.append("- Stopped early: %s" % esc(str(report.get("stopped_reason"))))
     if report.get("dry_run"):

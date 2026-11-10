@@ -19,6 +19,12 @@ Phase A2 tools (v0.5.0):
   mark_confirmed           - read and update the SQLite findings
     store; a finding is confirmed only with a reproduced
     verification, never on a model verdict alone
+Phase A3 tools (v0.5.0):
+  list_rules               - list the custom semgrep rules pack,
+    no GMI call, no spend
+  scope_enable, scope_disable - enable or disable the scope
+    plugin for one repo; scope is a destination policy, not
+    authorisation, and not a sandbox
 
 Rules enforced here, from the build plan:
 - No model is pre-selected. The caller must name the model.
@@ -58,7 +64,9 @@ from . import osv as osv_mod
 from . import prompts as prompts_mod
 from . import redact as redact_mod
 from . import report as report_mod
+from . import rules as rules_mod
 from . import scanners as scanners_mod
+from . import scope as scope_mod
 from . import store as store_mod
 from . import validate as validate_mod
 from . import verify as verify_mod
@@ -76,7 +84,7 @@ mcp = MCPServer(
         "Triage one semgrep finding, scan a repo, check a lockfile "
         "against OSV, explain a CVE from its advisory, verify a "
         "finding with a deterministic oracle, list and update "
-        "stored findings, or draft a "
+        "stored findings, list the custom rules, or draft a "
         "private disclosure. No model "
         "is pre-selected."
     ),
@@ -698,6 +706,8 @@ def repo_scan_impl(
     semgrep_binary="semgrep",
     osv_binary="osv-scanner",
     db_path=None,
+    rules_dir=None,
+    semgrep_custom_runner=None,
 ):
     """Repo-wide scan: semgrep plus osv-scanner, two-stage triage.
 
@@ -710,7 +720,12 @@ def repo_scan_impl(
     estimates the GMI cost with no API calls and no verdicts.
     When db_path is given, every triaged finding is stored and the
     report carries scan_id; db_path None stores nothing. A dry
-    run never writes to the store.
+    run never writes to the store. The custom rules pack in
+    rules/ runs in addition to the default semgrep config, and
+    its findings carry source custom-rule. When --require-scope
+    is set, the scan refuses a repo with no enabled scope policy.
+    A clean repo_scan does NOT mean flawless: it means no semgrep
+    finding triaged real, not that the repo has no flaws.
     """
     chat_fn = chat_fn or gmi_mod.chat
     errors = []
@@ -726,6 +741,12 @@ def repo_scan_impl(
             errors=["repo_path is not an existing directory: %s" % repo_path],
         )
     root = root.resolve()
+    scope_error = scope_mod.check_repo_scope(str(root))
+    if scope_error is not None:
+        return report_mod.build_report(
+            repo_path=str(root),
+            errors=[scope_error],
+        )
     if not stage1_model or not str(stage1_model).strip():
         return report_mod.build_report(
             repo_path=str(root),
@@ -857,8 +878,85 @@ def repo_scan_impl(
             continue
         item = dict(finding)
         item["file"] = rel
+        item["source"] = "default"
         findings.append(item)
     findings = scanners_mod.deduplicate_findings(findings)
+
+    # Custom rules pack, Phase A3: a second semgrep run with the
+    # rules/ directory as its own --config value, in addition to
+    # the default config above. Its findings carry source
+    # custom-rule. A missing pack, or a custom run that errors,
+    # is a warning or an error, never a silent clean scan, and it
+    # never blocks the default findings.
+    custom_rules_info = {
+        "enabled": False,
+        "dir": None,
+        "findings": 0,
+        "errors": [],
+    }
+    resolved_rules_dir = rules_mod.find_rules_dir(rules_dir)
+    if resolved_rules_dir is None:
+        warnings.append(
+            "custom rules pack not found: no rules/ directory "
+            "with ssh-host-key.yaml was found, so only the default "
+            "semgrep config ran. Set GMI_SECURITY_MCP_RULES_DIR "
+            "to the rules/ directory."
+        )
+    else:
+        custom_rules_info["enabled"] = True
+        custom_rules_info["dir"] = str(resolved_rules_dir)
+        try:
+            custom_raw, custom_errors = (
+                scanners_mod.run_semgrep_custom_rules(
+                    root,
+                    resolved_rules_dir,
+                    runner=semgrep_custom_runner or semgrep_runner,
+                    binary=semgrep_binary,
+                )
+            )
+        except RuntimeError as err:
+            custom_raw, custom_errors = [], [str(err)]
+        custom_rules_info["errors"] = list(custom_errors)
+        errors.extend(
+            "custom rules: %s" % err for err in custom_errors
+        )
+        custom_findings = []
+        for finding in custom_raw:
+            raw_path = finding.get("file") or ""
+            try:
+                rel = str(Path(raw_path).resolve().relative_to(root))
+            except (ValueError, OSError):
+                rel = raw_path
+                if rel.startswith(str(root)):
+                    rel = rel[len(str(root)):].lstrip("/")
+            if scanners_mod.is_excluded_path(rel, include_tests):
+                continue
+            item = dict(finding)
+            item["file"] = rel
+            custom_findings.append(item)
+        custom_findings = scanners_mod.deduplicate_findings(
+            custom_findings
+        )
+        # Drop custom findings the default run already reported
+        # (same rule, file, and line), so one finding is never
+        # triaged twice. Custom rule ids never collide with
+        # default rule ids, so this only removes true duplicates.
+        seen_keys = {
+            (item.get("rule_id"), item.get("file"), item.get("line"))
+            for item in findings
+        }
+        custom_findings = [
+            item
+            for item in custom_findings
+            if (
+                item.get("rule_id"),
+                item.get("file"),
+                item.get("line"),
+            )
+            not in seen_keys
+        ]
+        custom_rules_info["findings"] = len(custom_findings)
+        findings = findings + custom_findings
 
     # OSV section: one osv-scanner run per scannable lockfile found.
     # package.json and go.sum are parsed locally only: osv-scanner
@@ -1053,6 +1151,7 @@ def repo_scan_impl(
                 "file": finding.get("file"),
                 "line": finding.get("line"),
                 "rule_id": finding.get("rule_id"),
+                "source": finding.get("source", "default"),
                 "semgrep_severity": finding.get("semgrep_severity"),
                 "check": outcome.get("check") or finding.get("check"),
                 "verdict": outcome.get("verdict"),
@@ -1103,6 +1202,7 @@ def repo_scan_impl(
                             ),
                             evidence={
                                 "rule_id": finding.get("rule_id"),
+                                "source": finding.get("source", "default"),
                                 "semgrep_severity": finding.get(
                                     "semgrep_severity"
                                 ),
@@ -1177,6 +1277,8 @@ def repo_scan_impl(
         dry_run=dry_run,
         errors=errors,
         warnings=list(dict.fromkeys(warnings)),
+        custom_rules=custom_rules_info,
+        scope_enabled=scope_mod.is_scope_enabled(str(root)),
     )
     if store_path is not None and scan_id is not None:
         try:
@@ -1443,6 +1545,7 @@ def repo_scan(
     dry_run: bool = False,
     write_report: str | None = None,
     db_path: str | None = None,
+    rules_dir: str | None = None,
 ) -> str:
     """Scan a repo with semgrep and osv-scanner, then two-stage triage.
 
@@ -1453,8 +1556,26 @@ def repo_scan(
     skipped unless the caller raises the cap. Every triaged finding
     is stored in the findings store (per-user
     ~/.gmi-security-mcp/findings.db by default) and the report
-    carries scan_id, with one finding_id per finding.
+    carries scan_id, with one finding_id per finding. The custom
+    rules pack runs in addition to the default semgrep config, and
+    its findings carry source custom-rule. A clean repo_scan does
+    NOT mean flawless. Writing the report to write_report needs
+    --allow-apply on the server command line; without it the scan
+    still runs but the write is refused.
     """
+    if write_report is not None:
+        allow_error = scope_mod.check_allow_apply(
+            "write a scan report to %s" % write_report
+        )
+        if allow_error is not None:
+            return json.dumps(
+                {
+                    "repo_path": repo_path,
+                    "errors": [allow_error],
+                    "report_written_to": None,
+                },
+                indent=2,
+            )
     path, _warning = store_mod.resolve_db_path(db_path)
     result = repo_scan_impl(
         repo_path=repo_path,
@@ -1471,6 +1592,7 @@ def repo_scan(
         dry_run=dry_run,
         write_report=write_report,
         db_path=path,
+        rules_dir=rules_dir,
     )
     return json.dumps(result, indent=2)
 
@@ -1546,7 +1668,44 @@ def draft_private_disclosure(
     Returns the draft as Markdown and writes it only when
     write_path is given. It is never sent, never opened as a PR,
     never forked, never pushed, never emailed. sent is always false.
+    Writing the draft to write_path needs --allow-apply on the
+    server command line; without it the call is refused. When
+    --require-scope is set, the write target must sit inside a
+    repo with scope enabled.
     """
+    if write_path is not None:
+        allow_error = scope_mod.check_allow_apply(
+            "write a disclosure draft to %s" % write_path
+        )
+        if allow_error is not None:
+            return json.dumps(
+                {
+                    "draft_markdown": None,
+                    "written_to": None,
+                    "sent": False,
+                    "next_steps": [],
+                    "error": allow_error,
+                },
+                indent=2,
+            )
+        if scope_mod.require_scope_enabled() and not (
+            scope_mod.is_path_in_scoped_repo(write_path)
+        ):
+            return json.dumps(
+                {
+                    "draft_markdown": None,
+                    "written_to": None,
+                    "sent": False,
+                    "next_steps": [],
+                    "error": (
+                        "refusing: --require-scope is set and no "
+                        "scope policy covers %s. Run scope_enable "
+                        "with a scope file for the repo first."
+                        % write_path
+                    ),
+                },
+                indent=2,
+            )
     finding_for_draft = finding
     db_warning = None
     if finding_id is not None:
@@ -1837,6 +1996,13 @@ def verify_impl(
     if root is None:
         return _verify_error(
             "repo_path is not an existing directory: %s" % repo_path,
+            finding_id=finding_id,
+            regression_check=bool(regression_check),
+        )
+    scope_error = scope_mod.check_repo_scope(repo_path)
+    if scope_error is not None:
+        return _verify_error(
+            scope_error,
             finding_id=finding_id,
             regression_check=bool(regression_check),
         )
@@ -2365,8 +2531,24 @@ def verify_finding(
     with a warning; pass executor docker for a disposable
     container when Docker is available. verify_finding never
     applies a fix; a fix_candidate is run through patch
-    validation and then restored.
+    validation and then restored. A fix_candidate needs
+    --allow-apply on the server command line; without it the call
+    is refused.
     """
+    if fix_candidate is not None:
+        allow_error = scope_mod.check_allow_apply(
+            "run patch validation with a fix candidate"
+        )
+        if allow_error is not None:
+            return json.dumps(
+                {
+                    "finding_id": finding_id,
+                    "status": "error",
+                    "confirmed": False,
+                    "error": allow_error,
+                },
+                indent=2,
+            )
     path, _warning = store_mod.resolve_db_path(db_path)
     result = verify_impl(
         finding=finding,
@@ -2917,6 +3099,92 @@ def mark_confirmed(
     return json.dumps(result, indent=2)
 
 
+# --- Custom rules and scope tools, Phase A3 (v0.5.0) -----------
+# list_rules makes no GMI call and spends nothing. scope_enable
+# and scope_disable are separate tools by design, so an agent
+# cannot enable scope by accident through one tool doing both.
+
+
+def list_rules_impl(category=None, rules_dir=None):
+    """Rules from the custom pack, optionally filtered by category."""
+    return rules_mod.list_rules(category=category, rules_dir=rules_dir)
+
+
+def scope_enable_impl(scope_file, repo_path):
+    """Enable scope for one repo from a scope file."""
+    result, error = scope_mod.enable_scope(scope_file, repo_path)
+    if error is not None:
+        return {
+            "enabled": None,
+            "repo_path": repo_path,
+            "scope_file": scope_file,
+            "in_scope": [],
+            "out_of_scope": [],
+            "warning": None,
+            "error": error,
+        }
+    return result
+
+
+def scope_disable_impl(repo_path):
+    """Disable scope for one repo."""
+    result, error = scope_mod.disable_scope(repo_path)
+    if error is not None:
+        return {
+            "enabled": None,
+            "repo_path": repo_path,
+            "warning": None,
+            "error": error,
+        }
+    return result
+
+
+@mcp.tool()
+def list_rules(
+    category: str | None = None,
+) -> str:
+    """List the custom semgrep rules pack. No GMI call, no spend.
+
+    Returns each rule with id, name, category, severity,
+    description, and whether it is enabled by default. category
+    filters to one of the 7 known checks. The pack lives in
+    rules/ at the repo root; set GMI_SECURITY_MCP_RULES_DIR when
+    it is elsewhere.
+    """
+    result = list_rules_impl(category=category)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def scope_enable(
+    scope_file: str,
+    repo_path: str,
+) -> str:
+    """Enable scope for one repo from a scope file.
+
+    A scope file alone never activates checks; only this call
+    does. Returns the in-scope and out-of-scope lists and a
+    warning that scope is a destination policy, not authorisation
+    to test, and not an OS sandbox.
+    """
+    result = scope_enable_impl(scope_file=scope_file, repo_path=repo_path)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def scope_disable(
+    repo_path: str,
+) -> str:
+    """Disable scope for one repo.
+
+    Returns disabled with a warning that tools will now refuse
+    if --require-scope is set, because there is no scope policy
+    for the repo.
+    """
+    result = scope_disable_impl(repo_path=repo_path)
+    return json.dumps(result, indent=2)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="gmi-security-mcp",
@@ -2925,6 +3193,28 @@ def main(argv=None):
     parser.add_argument("--version", action="store_true", help="Print the version and exit")
     parser.add_argument(
         "--list-tools", action="store_true", help="List the tool names and exit"
+    )
+    parser.add_argument(
+        "--require-scope",
+        action="store_true",
+        help="Fail closed: refuse repo_scan, verify_finding, and "
+        "file-writing draft calls for a repo with no enabled "
+        "scope policy",
+    )
+    parser.add_argument(
+        "--allow-apply",
+        action="store_true",
+        help="Double gate: allow tool calls that write a file "
+        "(repo_scan write_report, draft_private_disclosure "
+        "write_path, verify_finding fix_candidate). A flag in "
+        "workflow JSON cannot grant this.",
+    )
+    parser.add_argument(
+        "--engagement-profile",
+        choices=["standard", "conservative"],
+        default="standard",
+        help="Rate limit for GMI calls: standard 5 requests per "
+        "second, conservative 1 per second, full jitter",
     )
     args = parser.parse_args(argv)
     if args.version:
@@ -2943,7 +3233,16 @@ def main(argv=None):
         print("update_finding")
         print("mark_fp")
         print("mark_confirmed")
+        print("list_rules")
+        print("scope_enable")
+        print("scope_disable")
         return 0
+    scope_mod.set_require_scope(args.require_scope)
+    scope_mod.set_allow_apply(args.allow_apply)
+    profile_error = scope_mod.set_profile(args.engagement_profile)
+    if profile_error is not None:
+        print(profile_error, file=sys.stderr)
+        return 2
     mcp.run()
     return 0
 

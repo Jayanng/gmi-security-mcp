@@ -883,6 +883,9 @@ def test_list_tools_includes_verify_finding():
         "update_finding",
         "mark_fp",
         "mark_confirmed",
+        "list_rules",
+        "scope_enable",
+        "scope_disable",
     ):
         assert name in tools
-    assert len(tools) == 12
+    assert len(tools) == 15

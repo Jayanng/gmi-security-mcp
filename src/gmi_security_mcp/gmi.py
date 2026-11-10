@@ -107,6 +107,16 @@ def chat(model, system_content, user_content, max_tokens=2500, timeout=120):
             "temperature": 0,
         }
     ).encode()
+    # Engagement profile throttle, Phase A3 (v0.5.0): standard
+    # 5 requests per second, conservative 1 per second, full
+    # jitter. The wait happens before the POST, never after a
+    # billed call. A throttle failure never blocks the call.
+    try:
+        from . import scope as scope_mod
+
+        scope_mod.throttle_gmi_call()
+    except (ImportError, ValueError, TypeError, OSError):
+        pass
     started = time.time()
     attempt = 1
     for attempt, attempt_timeout in ((1, timeout), (2, 300)):
