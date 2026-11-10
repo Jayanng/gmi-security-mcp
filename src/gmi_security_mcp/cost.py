@@ -1,4 +1,4 @@
-"""Cost estimation from models-82.json, never from hard-coded prices.
+"""Cost estimation from models-80.json, never from hard-coded prices.
 
 Source of the formula: the Security Audit Tool, index.html typicalCost
 and maxCost, and run_benchmark.py estimate_cost_usd.
@@ -8,7 +8,7 @@ and maxCost, and run_benchmark.py estimate_cost_usd.
   safe upper bound (runner): 250 prompt tokens and 2500 completion
   tokens per finding
 
-Pricing is read from models-82.json at runtime. A model with no flat
+Pricing is read from models-80.json at runtime. A model with no flat
 per-token pricing is unpriced: its cost is None, never invented.
 """
 
@@ -31,9 +31,9 @@ MAX_SPEND_CAP_USD = 5.00
 def _pricing_file_candidates():
     here = Path(__file__).resolve()
     return [
-        here.parent / "models-82.json",
-        here.parents[2] / "models-82.json",
-        Path.cwd() / "models-82.json",
+        here.parent / "models-80.json",
+        here.parents[2] / "models-80.json",
+        Path.cwd() / "models-80.json",
     ]
 
 
@@ -51,7 +51,7 @@ def load_pricing(path=None):
             data = json.loads(candidate.read_text())
             break
     if data is None:
-        raise FileNotFoundError("models-82.json not found in " + str(candidates))
+        raise FileNotFoundError("models-80.json not found in " + str(candidates))
     entries = data.get("data", data) if isinstance(data, dict) else data
     pricing = {}
     for model in entries:

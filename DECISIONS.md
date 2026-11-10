@@ -248,6 +248,52 @@ Mapped to this server, see AUDIT-2026-11-10-phase45.md
   `---` delimiters, and validate.py. Prompt-injection test added
   in tests/test_hardening.py.
 
+## 14. Pricing file is models-80.json, Phase 6, 2026-11-10
+
+Live re-check before the Phase 6 release: the GMI model list has
+80 models, 80 unique ids. The 2026-11-08 file had 82 entries, 81
+unique, with inclusionAI/Ling-3.0-flash-fin listed twice. The live
+list drops Ling entirely, adds no replacement, and pricing is
+unchanged on all 79 shared models. gmicloud/Ripple-65B-Preview
+still has no flat pricing. The file was replaced in place and
+renamed to models-80.json in both copies (repo root and
+src/gmi_security_mcp/), and cost.py, pyproject.toml, README.md,
+and DATA_SOURCES.md were updated to the new name. The old name
+would have been wrong by two models.
+
+## 15. Editor testing, Phase 6, 2026-11-10
+
+Claude Code 2.1.322 and Codex 0.164.0 were tested on this
+machine: registration plus tools/list, no agent-side tool call,
+because the build machine is not logged in to either service.
+Claude Code's add command health-checks the server and reported
+connected. Codex tools/list was verified against the exact
+registered command. Both test registrations were removed
+afterwards, and no key material was left in either config.
+Cursor was not tested: it is a desktop GUI app and was not
+installed on the build machine. The README and tutorial say so
+plainly. The build machine had only Python 3.12.3, so Python
+3.13.18 was installed with uv before the fresh-venv install
+test. The tutorial venv has semgrep 1.79.0; the bug-bounty
+machine has 1.184.0. Both versions are recorded where they were
+used.
+
+## 16. Demo video is a terminal recording, Phase 6, 2026-11-10
+
+The product is a CLI MCP server, so the demo records a live
+terminal, not a web page. Chrome could not be used: the stock
+Chromium on this machine refuses to start without a Hatch WebGL
+domain policy file and SHA-256, and the contract format of that
+file is not documented here, so the terminal was recorded
+directly under Xvfb with ffmpeg x11grab instead. The lime cursor
+is drawn in the terminal window and follows the real X pointer,
+which is moved to each element before acting. Take 1 was
+discarded: the live-run wait matched stale dry-run output, the
+live run was killed mid-scan before any verdict showed, and the
+cursor overlay failed. Take 2 is the delivered video: 57.84
+seconds, 1920x1080, 30 fps, real repo_scan run, 2 findings both
+false positive, $0.001219.
+
 ## Open items
 
 - Registry publish (Phase 7): needs a PyPI release first.

@@ -3,21 +3,23 @@
 Copied 2026-11-10 from the Security Audit Tool build, with the
 source and date noted for each file. Nothing here is invented.
 
-## models-82.json
+## models-80.json
 
-Source: `~/workspace/gmi-clouder/security-benchmark-push/models-82.json`,
-the live GMI model list fetched 2026-11-08. 82 entries, 81 unique
-ids. The duplicate is `inclusionAI/Ling-3.0-flash-fin`, listed once
-free ($0) and once paid; the paid entry is kept so estimates are
-never $0 for a billed model. `gmicloud/Ripple-65B-Preview` has no
-flat pricing (null) and is treated as unpriced.
+Source: the live GMI model list fetched 2026-11-10 with
+`list-models` through the GMI Inference API. 80 entries, 80 unique
+ids, saved verbatim in the API response shape. Replaces
+models-82.json, which held the 2026-11-08 list: 82 entries, 81
+unique ids, with `inclusionAI/Ling-3.0-flash-fin` listed twice.
 
-Live re-check 2026-11-10: the live list-models call returned 80
-models. `google/gemini-3.5-flash-lite` is still present with the
-same pricing (prompt $0.000000300, completion $0.000002500 per
-token). Pricing must be re-checked live again before release.
+Live re-check 2026-11-10, before the Phase 6 release: the live
+list has 80 models. `inclusionAI/Ling-3.0-flash-fin` is gone
+entirely, no replacement model was added, and pricing is unchanged
+on all 79 shared models, including `google/gemini-3.5-flash-lite`
+(prompt $0.000000300, completion $0.000002500 per token).
+`gmicloud/Ripple-65B-Preview` still has no flat pricing (null) and
+is treated as unpriced.
 
-A second copy lives at `src/gmi_security_mcp/models-82.json` so
+A second copy lives at `src/gmi_security_mcp/models-80.json` so
 the installed package can read pricing. The two copies must be
 kept identical; the repo-root copy is the source of truth.
 

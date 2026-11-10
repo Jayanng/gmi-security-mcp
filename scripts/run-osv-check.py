@@ -30,6 +30,17 @@ from mcp import ClientSession, StdioServerParameters  # noqa: E402
 from mcp.client.stdio import stdio_client  # noqa: E402
 
 
+def _tool_json(text):
+    """Parse a tool result. A non-JSON result is a server error, not a
+    verdict: report it instead of crashing on json.loads."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        print("ERROR: tool returned non-JSON result: %s" % text[:500],
+              file=sys.stderr)
+        raise SystemExit(4)
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Run OSV tools live.")
     parser.add_argument("--lockfile", default=None)
@@ -69,7 +80,7 @@ async def main():
                     "check_osv_advisory",
                     {"lockfile_path": args.lockfile},
                 )
-                result = json.loads(call.content[0].text)
+                result = _tool_json(call.content[0].text)
                 log["check_osv_advisory"] = result
                 print(
                     "lockfile %s: ecosystem %s, parsed %d packages, "
@@ -105,7 +116,7 @@ async def main():
                         "stage1_model": args.model,
                     },
                 )
-                result = json.loads(call.content[0].text)
+                result = _tool_json(call.content[0].text)
                 log["explain_cve"] = result
                 print("explain %s: found=%s" % (args.explain, result.get("found")))
                 if result.get("found"):

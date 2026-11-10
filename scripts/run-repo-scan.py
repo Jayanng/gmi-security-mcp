@@ -32,6 +32,17 @@ from mcp import ClientSession, StdioServerParameters  # noqa: E402
 from mcp.client.stdio import stdio_client  # noqa: E402
 
 
+def _tool_json(text):
+    """Parse a tool result. A non-JSON result is a server error, not a
+    verdict: report it instead of crashing on json.loads."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        print("ERROR: tool returned non-JSON result: %s" % text[:500],
+              file=sys.stderr)
+        raise SystemExit(4)
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Run repo_scan live.")
     parser.add_argument("--repo", required=True)
@@ -41,6 +52,9 @@ async def main():
     parser.add_argument("--max-file-kb", type=int, default=40)
     parser.add_argument("--max-total-kb", type=int, default=200)
     parser.add_argument("--max-files", type=int, default=10)
+    parser.add_argument("--semgrep-config", default=None,
+                        help="semgrep config set, e.g. p/default; "
+                        "default is the server default set")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--write-report", default=None)
     parser.add_argument("--out", default=None)
@@ -80,9 +94,11 @@ async def main():
                     "max_total_kb": args.max_total_kb,
                     "dry_run": args.dry_run,
                     "write_report": args.write_report,
-                },
+                }
+                | ({"semgrep_config": args.semgrep_config}
+                   if args.semgrep_config else {}),
             )
-            report = json.loads(call.content[0].text)
+            report = _tool_json(call.content[0].text)
 
     print("repo: %s" % report.get("repo_path"))
     print(

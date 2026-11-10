@@ -42,6 +42,17 @@ CATEGORY_TO_CHECK = {
 }
 
 
+def _tool_json(text):
+    """Parse a tool result. A non-JSON result is a server error, not a
+    verdict: report it instead of crashing on json.loads."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        print("ERROR: tool returned non-JSON result: %s" % text[:500],
+              file=sys.stderr)
+        raise SystemExit(4)
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Run the 50-finding dataset live.")
     parser.add_argument("--model", default=DEFAULT_MODEL)
@@ -116,7 +127,7 @@ async def main():
                         "spend_cap_usd": args.cap_usd,
                     },
                 )
-                result = json.loads(call.content[0].text)
+                result = _tool_json(call.content[0].text)
                 passed = result.get("verdict") == finding["expected_label"]
                 results.append(
                     {

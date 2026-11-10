@@ -1,0 +1,3 @@
+[mcp_servers.gmi-security-mcp]
+command = "gmi-security-mcp"
+env = { GMI_API_KEY = "your-gmi-key" }

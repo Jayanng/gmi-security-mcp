@@ -1,0 +1,1728 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "deepseek-ai/deepseek-v4.1-flash-1017",
+      "internal_id": "9aa6bb1e-170b-41ec-929d-1532858f9390",
+      "name": "DeepSeek-V4.1-Flash-1017",
+      "object": "model",
+      "created": 1792449200,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000006",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.4
+    },
+    {
+      "id": "google/gemini-3.8-flash",
+      "internal_id": "e5aabab2-5ae8-4de1-875b-8aca0d92a833",
+      "name": "Gemini 3.8 Flash",
+      "object": "model",
+      "created": 1788381354,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000750",
+        "completion": "0.000003750",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000075",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "zai-org/GLM-5.3-Flash",
+      "internal_id": "60e50c31-b7d0-45a9-b83b-905a0d169c10",
+      "name": "ZAI: GLM-5.3 Flash",
+      "object": "model",
+      "created": 1787771254,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000150",
+        "completion": "0.000000500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000030",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.5
+    },
+    {
+      "id": "Qwen/Qwen3.8-27B",
+      "internal_id": "ed878143-66b2-4dbb-a2ee-c05667f8312a",
+      "name": "Qwen3.8 27B",
+      "object": "model",
+      "created": 1787257528,
+      "context_length": 1048575,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000450",
+        "completion": "0.000003200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000250",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "stepfun-ai/Step-3.7-Flash",
+      "internal_id": "824d96ea-74f3-42c1-aa61-c7a21c1e1449",
+      "name": "StepFun: Step-3.7-Flash",
+      "object": "model",
+      "created": 1787110780,
+      "context_length": 256000,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000200",
+        "completion": "0.000001150",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000040",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemini-3.7-flash",
+      "internal_id": "7e7e7f50-2a84-4ef6-809e-9db5d51bee96",
+      "name": "Gemini 3.7 Flash",
+      "object": "model",
+      "created": 1786653804,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000750",
+        "completion": "0.000003750",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000075",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.8-Max",
+      "internal_id": "8881dcb5-e26b-473c-aa5e-9f43054eecb9",
+      "name": "Qwen3.8 Max",
+      "object": "model",
+      "created": 1785782570,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000006000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000250",
+        "input_cache_write": "0.000002500"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "internal_id": "5709fa67-fe41-482b-8197-45282e7ea42a",
+      "name": "DeepSeek-V4-Flash-0731",
+      "object": "model",
+      "created": 1785533580,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000440",
+        "completion": "0.000001320",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000014",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.35
+    },
+    {
+      "id": "google/gemini-3.6-flash",
+      "internal_id": "86199128-2a04-4f63-9028-c4f238172811",
+      "name": "Gemini 3.6 Flash",
+      "object": "model",
+      "created": 1784781119,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001500",
+        "completion": "0.000007500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000150",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemini-3.5-flash-lite",
+      "internal_id": "52de98de-cd00-40c8-a99a-5d07576e0b24",
+      "name": "Gemini 3.5 Flash-Lite",
+      "object": "model",
+      "created": 1784780097,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000002500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000030",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/kimi-k3",
+      "internal_id": "d36120fa-0025-4018-8daa-54fcc1749135",
+      "name": "moonshotai/Kimi: K3",
+      "object": "model",
+      "created": 1784236684,
+      "context_length": 1048576,
+      "quantization": "fp4",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000003000",
+        "completion": "0.000015000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000300",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "x-ai/grok-4.5",
+      "internal_id": "74d835b8-6689-4caa-a580-e4a28128a64d",
+      "name": "Grok 4.5",
+      "object": "model",
+      "created": 1783733264,
+      "context_length": 2000000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000006000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000500",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 200000,
+            "prompt": "0.000004000",
+            "completion": "0.000012000",
+            "input_cache_read": "0.000001000",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.6-luna",
+      "internal_id": "16746f80-0f3e-4b41-a812-8627ebbc245b",
+      "name": "GPT-5.6-Luna",
+      "object": "model",
+      "created": 1783661568,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001000",
+        "completion": "0.000006000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0.000001250",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000002000",
+            "completion": "0.000009000",
+            "input_cache_read": "0.000000200",
+            "input_cache_write": "0.000002500"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.6-terra",
+      "internal_id": "a16c9277-baba-460a-8962-71eeb778ca1d",
+      "name": "GPT-5.6-Terra",
+      "object": "model",
+      "created": 1783660912,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002500",
+        "completion": "0.000015000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000250",
+        "input_cache_write": "0.000003125",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000005000",
+            "completion": "0.000022500",
+            "input_cache_read": "0.000000500",
+            "input_cache_write": "0.000006250"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.6-sol",
+      "internal_id": "97615ebb-523f-4d09-814d-f022033984f9",
+      "name": "GPT-5.6-Sol",
+      "object": "model",
+      "created": 1783658025,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000005000",
+        "completion": "0.000030000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000500",
+        "input_cache_write": "0.000006250",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000010000",
+            "completion": "0.000045000",
+            "input_cache_read": "0.000001000",
+            "input_cache_write": "0.000012500"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "tencent/Hy3",
+      "internal_id": "c95003e0-4186-45bc-82d6-3270e78cf551",
+      "name": "tencent/Hy3",
+      "object": "model",
+      "created": 1783366493,
+      "context_length": 262144,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000140",
+        "completion": "0.000000580",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000035",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/kimi-k2.7-code-highspeed",
+      "internal_id": "b8c17dda-1188-4c50-90f0-dd2832a251d4",
+      "name": "moonshotai/Kimi: K2.7-Code-Highspeed",
+      "object": "model",
+      "created": 1782220330,
+      "context_length": 262144,
+      "quantization": "int4",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001900",
+        "completion": "0.000008000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000380",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "zai-org/GLM-5.2-FP8",
+      "internal_id": "1f12423b-ac10-4690-a670-36f768d7b9bf",
+      "name": "zai-org/GLM-5.2-FP8",
+      "object": "model",
+      "created": 1781595121,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001400",
+        "completion": "0.000004400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000260",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M3",
+      "internal_id": "3c25d31e-d652-4d0b-bb0f-24476766da32",
+      "name": "MiniMaxAI/MiniMax-M3",
+      "object": "model",
+      "created": 1780360733,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000060",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 512000,
+            "prompt": "0.000000600",
+            "completion": "0.000002400",
+            "input_cache_read": "0.000000120",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0.2
+    },
+    {
+      "id": "Qwen/Qwen3.7-Max",
+      "internal_id": "a1f45766-f68a-446d-8bff-513173e8044f",
+      "name": "Qwen3.7 Max",
+      "object": "model",
+      "created": 1779405354,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002500",
+        "completion": "0.000007500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000250",
+        "input_cache_write": "0.000003125"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemini-3.5-flash",
+      "internal_id": "88943704-646d-47f6-868c-408ed6f78e08",
+      "name": "Gemini 3.5 Flash",
+      "object": "model",
+      "created": 1779214310,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001500",
+        "completion": "0.000009000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000150",
+        "input_cache_write": "0.000000083"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.5",
+      "internal_id": "39c41644-705e-4f94-894f-475b0e3877a9",
+      "name": "GPT-5.5",
+      "object": "model",
+      "created": 1777261062,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000005000",
+        "completion": "0.000030000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000500",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000010000",
+            "completion": "0.000045000",
+            "input_cache_read": "0.000001000",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Pro",
+      "internal_id": "cbecb2f4-480e-4d25-b3d7-8f38ea0c3913",
+      "name": "DeepSeek-V4-Pro",
+      "object": "model",
+      "created": 1777002306,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001740",
+        "completion": "0.000003480",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000145",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.45
+    },
+    {
+      "id": "zai-org/GLM-5.1-FP8",
+      "internal_id": "4e4d2e35-34ff-45dc-b09f-c50d464d3464",
+      "name": "ZAI: GLM-5.1",
+      "object": "model",
+      "created": 1775553371,
+      "context_length": 202752,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001400",
+        "completion": "0.000004400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000260",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "zai-org/GLM-5-FP8",
+      "internal_id": "951fef32-e6c8-4a1d-8cac-89405daae6e0",
+      "name": "ZAI: GLM-5",
+      "object": "model",
+      "created": 1775101232,
+      "context_length": 202752,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001000",
+        "completion": "0.000003200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000200",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.4
+    },
+    {
+      "id": "openai/gpt-5.4-nano",
+      "internal_id": "a6aeab85-5b61-45b3-bffd-c694b1b232e1",
+      "name": "GPT-5.4-nano",
+      "object": "model",
+      "created": 1774234154,
+      "context_length": 409600,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000200",
+        "completion": "0.000001250",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000020",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.4-mini",
+      "internal_id": "23cb6299-525b-4014-bcb0-eeead5563359",
+      "name": "GPT-5.4-mini",
+      "object": "model",
+      "created": 1774234150,
+      "context_length": 409600,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000750",
+        "completion": "0.000004500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000075",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2.7",
+      "internal_id": "b55d47ed-0d1e-467e-ae93-f1500402d184",
+      "name": "MiniMaxAI/MiniMax-M2.7",
+      "object": "model",
+      "created": 1773868082,
+      "context_length": 196608,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000060",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.3
+    },
+    {
+      "id": "google/gemini-3.1-flash-lite-preview",
+      "internal_id": "a0ef7494-9dca-4c58-a764-f0dd8798884e",
+      "name": "Gemini 3.1 Flash-Lite",
+      "object": "model",
+      "created": 1773620102,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000250",
+        "completion": "0.000001500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000025",
+        "input_cache_write": "0.000000083"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.4-pro",
+      "internal_id": "d76fc13b-a773-4496-b6eb-ae2cba69fdfe",
+      "name": "GPT-5.4-pro",
+      "object": "model",
+      "created": 1773027042,
+      "context_length": 409600,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000030000",
+        "completion": "0.000180000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000060000",
+            "completion": "0.000270000",
+            "input_cache_read": "0",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-5.4",
+      "internal_id": "e56e1d06-70cb-440f-b0d1-034bc2810ff5",
+      "name": "GPT-5.4",
+      "object": "model",
+      "created": 1772885695,
+      "context_length": 409600,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002500",
+        "completion": "0.000015000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000250",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000005000",
+            "completion": "0.000022500",
+            "input_cache_read": "0.000000500",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemini-3.1-pro-preview",
+      "internal_id": "4078d9c2-e385-424c-af4b-2753b94d92ff",
+      "name": "Gemini-3.1-Pro",
+      "object": "model",
+      "created": 1771533816,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000012000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-R1-0528",
+      "internal_id": "19a10465-f028-46cd-bd6f-91921c886699",
+      "name": "deepseek-ai/DeepSeek-R1-0528",
+      "object": "model",
+      "created": 1768879248,
+      "context_length": 131072,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000570",
+        "completion": "0.000002290",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000230",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V3.2",
+      "internal_id": "8d65e8ed-986d-45c2-b417-95ba8dce6605",
+      "name": "deepseek-ai/DeepSeek-V3.2",
+      "object": "model",
+      "created": 1768988202,
+      "context_length": 163840,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000290",
+        "completion": "0.000000430",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000030",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.28
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V3-0324",
+      "internal_id": "54540344-cd74-40e8-ade4-c84048307645",
+      "name": "DeepSeek V3 0324",
+      "object": "model",
+      "created": 1769663589,
+      "context_length": 128000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000290",
+        "completion": "0.000001140",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000110",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4.1-Flash",
+      "internal_id": "0049392b-5a6b-4e94-acc0-e18b8e293aac",
+      "name": "DeepSeek-V4.1-Flash",
+      "object": "model",
+      "created": 1789065082,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000006",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.4
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Flash",
+      "internal_id": "16e9ccd2-84e0-43b4-9d9a-5cb31b3341a2",
+      "name": "DeepSeek-V4-Flash",
+      "object": "model",
+      "created": 1777018410,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000140",
+        "completion": "0.000000280",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000028",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.35
+    },
+    {
+      "id": "deepseek-ai/deepseek-v4-flash-vision-exp",
+      "internal_id": "1c0d2152-07d5-4856-8930-824013203309",
+      "name": "DeepSeek-V4-Flash-Vision-Exp",
+      "object": "model",
+      "created": 1787348378,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000440",
+        "completion": "0.000001320",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000014",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "internal_id": "de6e71be-d065-49a7-b77c-53cec002d8b2",
+      "name": "DeepSeek-V4-Pro-0813",
+      "object": "model",
+      "created": 1786598875,
+      "context_length": 1048575,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001320",
+        "completion": "0.000003960",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000044",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.2
+    },
+    {
+      "id": "google/gemini-3-flash-preview",
+      "internal_id": "dbe2292c-a925-41eb-ab4d-0e6eecaa1562",
+      "name": "Gemini 3 Flash",
+      "object": "model",
+      "created": 1766103948,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000500",
+        "completion": "0.000003000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemini-4-argon",
+      "internal_id": "60b8a012-73ec-4c04-923d-8176ef91aa96",
+      "name": "Gemini-4-Argon",
+      "object": "model",
+      "created": 1791939086,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000010000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemma-4-26b-a4b-it",
+      "internal_id": "ea6bbeb1-8aa5-4c58-bfe9-cfc98a6335d1",
+      "name": "Gemma 4 26B A4B IT",
+      "object": "model",
+      "created": 1775259325,
+      "context_length": 256000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000130",
+        "completion": "0.000000400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "google/gemma-4-31b-it",
+      "internal_id": "8b6ca932-9a42-44af-8df7-d006abd4a193",
+      "name": "Gemma 4 31B IT",
+      "object": "model",
+      "created": 1775259170,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000140",
+        "completion": "0.000000400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-6.1-sol",
+      "internal_id": "6aa0142b-ca73-4262-b123-dfc4b5405a30",
+      "name": "gpt-6.1-sol",
+      "object": "model",
+      "created": 1790892608,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000010000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0.000002500",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000004000",
+            "completion": "0.000015000",
+            "input_cache_read": "0.000000200",
+            "input_cache_write": "0.000005000"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-6-astra",
+      "internal_id": "c384aac4-dd25-424a-a86d-591dbad9b2e0",
+      "name": "GPT-6-Astra",
+      "object": "model",
+      "created": 1788578068,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000010000",
+        "completion": "0.000050000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000001000",
+        "input_cache_write": "0.000012500",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000020000",
+            "completion": "0.000075000",
+            "input_cache_read": "0.000002000",
+            "input_cache_write": "0.000025000"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-6-luna",
+      "internal_id": "6a7bb75b-4b97-49bc-b8a6-38dc23757075",
+      "name": "GPT-6 Luna",
+      "object": "model",
+      "created": 1790131637,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000100",
+        "completion": "0.000000500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000010",
+        "input_cache_write": "0.000000125",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000000200",
+            "completion": "0.000000750",
+            "input_cache_read": "0.000000020",
+            "input_cache_write": "0.000000250"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "openai/gpt-6-sol",
+      "internal_id": "12b03079-038a-44f6-ac45-a8a84b6588e5",
+      "name": "GPT-6 Sol",
+      "object": "model",
+      "created": 1790131423,
+      "context_length": 1050000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000010000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000200",
+        "input_cache_write": "0.000002500",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000004000",
+            "completion": "0.000015000",
+            "input_cache_read": "0.000000400",
+            "input_cache_write": "0.000005000"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "xai/grok4.6",
+      "internal_id": "95a8cd9c-de97-456d-8828-261c81e42ac2",
+      "name": "Grok 4.6",
+      "object": "model",
+      "created": 1786735738,
+      "context_length": 2000000,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000006000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000500",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 200000,
+            "prompt": "0.000004000",
+            "completion": "0.000012000",
+            "input_cache_read": "0.000001000",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.6-Flash",
+      "internal_id": "ecc2d2ea-a257-4da7-895b-828aaa45b370",
+      "name": "MiMo-V2.6-Flash",
+      "object": "model",
+      "created": 1790624381,
+      "context_length": 1050000,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000140",
+        "completion": "0.000000280",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000003",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.2
+    },
+    {
+      "id": "XiaomiMiMo/MiMo-V2.6-Pro",
+      "internal_id": "3a6f9a3e-c703-4abd-af1c-42b7793de789",
+      "name": "MiMo-V2.6-Pro",
+      "object": "model",
+      "created": 1790366204,
+      "context_length": 1050000,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000435",
+        "completion": "0.000000870",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000004",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.25
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M2.5",
+      "internal_id": "2a7f5f64-6c5f-4896-a524-8bcadaa3be7f",
+      "name": "MiniMaxAI/MiniMax-M2.5",
+      "object": "model",
+      "created": 1770929053,
+      "context_length": 196608,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000030",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "MiniMaxAI/MiniMax-M3.1-Flash",
+      "internal_id": "e779f6e7-b393-4208-9ec8-61ad2af3348c",
+      "name": "MiniMaxAI/MiniMax-M3.1-Flash",
+      "object": "model",
+      "created": 1791493351,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000150",
+        "completion": "0.000000600",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000015",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.25
+    },
+    {
+      "id": "moonshotai/Kimi-K2.5",
+      "internal_id": "e6a2ea3d-ba41-49d0-af87-12b997c9cdb6",
+      "name": "moonshotai/Kimi-K2.5",
+      "object": "model",
+      "created": 1770734678,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000600",
+        "completion": "0.000003000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/Kimi-K2.6",
+      "internal_id": "73286e78-971f-435b-876e-de0b3d5d8516",
+      "name": "moonshotai/Kimi: K2.6",
+      "object": "model",
+      "created": 1777660164,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000950",
+        "completion": "0.000004000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000160",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.1
+    },
+    {
+      "id": "moonshotai/kimi-k2.7-code",
+      "internal_id": "2b6c9f5e-7afa-4125-b512-63d2865dd903",
+      "name": "moonshotai/Kimi: K2.7-Code",
+      "object": "model",
+      "created": 1781294758,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000950",
+        "completion": "0.000004000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000190",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/Kimi-K2-Instruct-0905",
+      "internal_id": "c8f01e1e-b793-41f4-80e9-b6e9dc3f9da2",
+      "name": "moonshotai/Kimi-K2-Instruct-0905",
+      "object": "model",
+      "created": 1768879121,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000570",
+        "completion": "0.000002290",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000140",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/Kimi-K2-Thinking",
+      "internal_id": "90e16d8b-6115-4e38-88cf-8fef0f5833e3",
+      "name": "moonshotai/Kimi-K2-Thinking",
+      "object": "model",
+      "created": 1769679488,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000800",
+        "completion": "0.000001200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "moonshotai/kimi-k3.1-pro",
+      "internal_id": "370ac334-73cf-4625-b1a8-24761bfb1f70",
+      "name": "moonshotai/kimi-k3.1-pro",
+      "object": "model",
+      "created": 1792988497,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000002000",
+        "completion": "0.000010000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000200",
+        "input_cache_write": "0.000002000",
+        "input_cache_write_1h": "0.000004000"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "nvidia/nemotron-3-ultra-550b-a55b",
+      "internal_id": "d742e342-4051-4098-9401-b0de97a6ecbb",
+      "name": "Nemotron 3 ultra",
+      "object": "model",
+      "created": 1780363490,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000800",
+        "completion": "0.000002600",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "zai-org/GLM-4.7-FP8",
+      "internal_id": "ed1f3df9-83a6-4ca5-a974-9d113017409c",
+      "name": "Proxy: zai-org/GLM-4.7",
+      "object": "model",
+      "created": 1768988352,
+      "context_length": 202752,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000600",
+        "completion": "0.000002200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000110",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.5-122B-A10B",
+      "internal_id": "b0c97d0a-6272-499b-a12c-e860cbb66d6d",
+      "name": "Qwen3.5 122B A10B",
+      "object": "model",
+      "created": 1772688133,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000400",
+        "completion": "0.000003200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.5-27B",
+      "internal_id": "b5ca6de9-fc59-4bb7-a0b6-646e4ca2bc72",
+      "name": "Qwen3.5 27B",
+      "object": "model",
+      "created": 1772676884,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000300",
+        "completion": "0.000002400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.5-35B-A3B",
+      "internal_id": "dda5db69-e0a0-444d-88b5-862d79c85a0f",
+      "name": "Qwen3.5 35B A3B",
+      "object": "model",
+      "created": 1772688290,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000250",
+        "completion": "0.000002000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.5-397B-A17B",
+      "internal_id": "29ac1bb2-9c03-4a7c-9178-fb438d0e1814",
+      "name": "Qwen3.5 397B A17B",
+      "object": "model",
+      "created": 1772688516,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000600",
+        "completion": "0.000003600",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.6-35B-A3B",
+      "internal_id": "9deb2533-b297-4af8-825f-cbdd67130ee2",
+      "name": "Qwen3.6-35B-A3B",
+      "object": "model",
+      "created": 1779308132,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000248",
+        "completion": "0.000001485",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.6-Plus",
+      "internal_id": "c6ce4ef6-245b-4226-99e0-b6ead0530368",
+      "name": "Qwen3.6 Plus",
+      "object": "model",
+      "created": 1776197821,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000500",
+        "completion": "0.000003000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.6-Plus-2026-04-02",
+      "internal_id": "8d9958e3-5f8d-48b2-a918-f077385757f6",
+      "name": "Qwen3.6 Plus 2026-04-02",
+      "object": "model",
+      "created": 1776198159,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000500",
+        "completion": "0.000003000",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.8-Flash",
+      "internal_id": "e7cd2464-04a4-4b85-bfbb-8caedcdca20c",
+      "name": "Qwen3.8 Flash",
+      "object": "model",
+      "created": 1787773446,
+      "context_length": 1048575,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000160",
+        "completion": "0.000000470",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000016",
+        "input_cache_write": "0.000000200"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3.8-Max-0902",
+      "internal_id": "b2d7b50b-eafe-4174-bbbf-9ea95f248bf8",
+      "name": "Qwen3.8 Max 0902",
+      "object": "model",
+      "created": 1788907156,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001650",
+        "completion": "0.000004951",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000206",
+        "input_cache_write": "0.000002063"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
+      "internal_id": "73a40add-f8bc-4bec-8097-8b24cde9b8aa",
+      "name": "Qwen3 Next 80B A3B Instruct ",
+      "object": "model",
+      "created": 1772500519,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000150",
+        "completion": "0.000001500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3-Next-80B-A3B-Thinking",
+      "internal_id": "8b9dceb5-a0cb-498f-9d2f-bab1f2451972",
+      "name": "Qwen3 Next 80B A3B Thinking",
+      "object": "model",
+      "created": 1772601899,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000150",
+        "completion": "0.000001500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+      "internal_id": "434dc96d-11d9-4318-9ca4-556fa89eb7bb",
+      "name": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+      "object": "model",
+      "created": 1768878907,
+      "context_length": 262144,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000350",
+        "completion": "0.000001400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000070",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.75
+    },
+    {
+      "id": "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+      "internal_id": "7b55b467-cf61-4b25-b65e-2903a7faa067",
+      "name": "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+      "object": "model",
+      "created": 1768879346,
+      "context_length": 262141,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000350",
+        "completion": "0.000004200",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+      "internal_id": "1fd8ead2-d150-4101-bc14-e46cd81d4a1e",
+      "name": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+      "object": "model",
+      "created": 1768878575,
+      "context_length": 262128,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000900",
+        "completion": "0.000004500",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000180",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 32000,
+            "prompt": "0.000001620",
+            "completion": "0.000008100",
+            "input_cache_read": "0.000000324",
+            "input_cache_write": "0"
+          },
+          {
+            "min_prompt_tokens": 128000,
+            "prompt": "0.000002700",
+            "completion": "0.000013500",
+            "input_cache_read": "0.000000540",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "description": "Ripple-65B-Preview by ricursiveAI, a 65B reasoning model with native tool calling, served in FP8.",
+      "id": "gmicloud/Ripple-65B-Preview",
+      "input_modalities": [
+        {
+          "pricing": [
+            {
+              "cost_usd": "0.000000200",
+              "type": "prompt",
+              "unit": "token"
+            },
+            {
+              "cost_usd": "0.000000050",
+              "type": "cached_prompt",
+              "unit": "token"
+            }
+          ],
+          "supported_inputs": {
+            "max_context_length": {
+              "unit": "token",
+              "value": 1048576
+            }
+          },
+          "type": "text"
+        }
+      ],
+      "is_ready": true,
+      "name": "ricursiveAI/Ripple-65B-Preview",
+      "output_modalities": [
+        {
+          "max_length": {
+            "unit": "token",
+            "value": 131072
+          },
+          "pricing": [
+            {
+              "cost_usd": "0.000000600",
+              "type": "completion",
+              "unit": "token"
+            }
+          ],
+          "streaming": true,
+          "supported_parameters": {
+            "max_tokens": {
+              "max": 16384,
+              "min": 1,
+              "type": "integer",
+              "unit": "token"
+            },
+            "reasoning": {
+              "type": "boolean"
+            },
+            "temperature": {
+              "max": 2,
+              "min": 0,
+              "type": "range"
+            },
+            "tools": {
+              "type": "boolean"
+            },
+            "top_p": {
+              "max": 1,
+              "min": 0,
+              "type": "range"
+            }
+          },
+          "type": "text"
+        }
+      ],
+      "quantization": "bf16",
+      "schema_version": "2.4"
+    },
+    {
+      "id": "stepfun-ai/Step-5-Preview",
+      "internal_id": "f2c4eeb4-8d4c-4b67-a4e5-82aba789412c",
+      "name": "StepFun: Step-5-Preview",
+      "object": "model",
+      "created": 1792190605,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001000",
+        "completion": "0.000002700",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000100",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "tencent/hy3-preview",
+      "internal_id": "222715d2-d787-4feb-b5de-09e05a26bd35",
+      "name": "tencent/hy3-preview",
+      "object": "model",
+      "created": 1778527491,
+      "context_length": 262144,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000180",
+        "completion": "0.000000600",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000060",
+        "input_cache_write": "0",
+        "overrides": [
+          {
+            "min_prompt_tokens": 16384,
+            "prompt": "0.000000240",
+            "completion": "0.000000960",
+            "input_cache_read": "0.000000090",
+            "input_cache_write": "0"
+          },
+          {
+            "min_prompt_tokens": 32768,
+            "prompt": "0.000000300",
+            "completion": "0.000001200",
+            "input_cache_read": "0.000000120",
+            "input_cache_write": "0"
+          }
+        ]
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "tencent/hy4",
+      "internal_id": "e3abda17-1c44-4632-a4ca-5430f487e6f1",
+      "name": "tencent/hy4",
+      "object": "model",
+      "created": 1793766548,
+      "context_length": 1000000,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000834",
+        "completion": "0.000002501",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000042",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.5
+    },
+    {
+      "id": "tencent/hy4-preview",
+      "internal_id": "d9b8429f-3610-4352-8ba1-d9c494ee03da",
+      "name": "tencent/hy4-preview",
+      "object": "model",
+      "created": 1787862483,
+      "context_length": 262144,
+      "quantization": "bf16",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000000834",
+        "completion": "0.000002501",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000042",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0
+    },
+    {
+      "id": "zai-org/GLM-5.3",
+      "internal_id": "f2b6325c-ea70-4c19-802b-5a5f839259e3",
+      "name": "ZAI: GLM-5.3",
+      "object": "model",
+      "created": 1786739396,
+      "context_length": 1048576,
+      "quantization": "fp8",
+      "owned_by": "GMI Cloud",
+      "pricing": {
+        "prompt": "0.000001400",
+        "completion": "0.000004400",
+        "request": "0",
+        "image": "0",
+        "input_cache_read": "0.000000260",
+        "input_cache_write": "0"
+      },
+      "discount_to_user": 0.5
+    }
+  ]
+}
