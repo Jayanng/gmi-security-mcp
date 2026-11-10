@@ -101,6 +101,21 @@ def test_scope_ipv6_cidr_refused_with_clear_message(tmp_path):
     assert "IPv6" in error
 
 
+def test_scope_host_with_port_refused_plainly_not_as_ipv6(tmp_path):
+    """A scope entry with a port (example.com:443) is refused with
+    a plain port message, not the misleading IPv6 message: an
+    exact-host rule already allows any port, so the fix is to
+    drop the port."""
+    path = _write_scope(tmp_path, ["example.com:443"], [])
+    policy, error = scope_mod.parse_scope_file(str(path))
+    assert policy is None
+    assert error is not None
+    assert "IPv6" not in error
+    assert "port" in error.lower()
+    assert "example.com" in error
+    assert "without the port" in error
+
+
 def test_scope_wildcard_matches_subdomains_only(tmp_path):
     policy = _policy(tmp_path, ["*.example.com"], [])
     assert scope_mod.is_allowed(policy, "api.example.com") is True

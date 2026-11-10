@@ -8,13 +8,33 @@ Source: ~/workspace/gmi-clouder/security-benchmark-push/index.html
 
 Do not reword these. The MCP server must give the same answer as the
 audit tool on the same finding, so the prompts stay identical.
+Exception, recorded in DECISIONS.md section 22 (2026-11-10, fix pass
+after v0.5.0): TRIAGE_PROMPT gains one missing-verification clause.
+The v0.5.0 live run proved the original wording misses
+missing-verification flaws (ssh-mcp-server host key, triaged
+false_positive at 0.9 while the oracle reproduced it), because the
+model read "real only if untrusted input reaches a dangerous sink"
+as a tainted-flow test and demanded the full instantiation. The
+clause is narrow: it only covers a complete configuration or setup
+that omits a required verification, and it keeps false_positive
+when the verification is present. It was tested on the 50-finding
+dataset with a MockLLM floor first, then one live run, before it
+shipped. REPO_PROMPT is unchanged and is not used by the server.
 """
 
 TRIAGE_PROMPT = (
     'You are a security code reviewer. Classify this finding. A finding is real only if '
     'untrusted input actually reaches a dangerous sink with no effective mitigation in '
     'the code shown. If the code uses parameterisation, escaping, allowlists, or other '
-    'effective mitigation, it is a false_positive. Return ONLY JSON, no other text: '
+    'effective mitigation, it is a false_positive. A finding is also real when the code '
+    'shown is the complete configuration or setup for a security-sensitive operation '
+    'and it omits a required verification with no equivalent check in the code shown, '
+    'for example an SSH client configuration with no host key verification, a JWT decode '
+    'with signature verification disabled, or a TLS or certificate check that is skipped. '
+    'Judge on the code shown: do not call it false_positive only because the full file '
+    'or the call site is not shown, when the code shown is the configuration that would '
+    'carry the verification. A finding is still false_positive when the code shown '
+    'includes the verification or an equivalent check. Return ONLY JSON, no other text: '
     '{"verdict": "real" or "false_positive", "severity": "critical|high|medium|low", '
     '"confidence": 0-1, "reason": "one short sentence", "fix": "one short sentence"}'
     '\n\nFinding:\n'
@@ -67,6 +87,11 @@ POC_PROMPT = (
     'except to 127.0.0.1. No shell commands. No reading or writing '
     'files outside the repo directory. No secrets, no real '
     'credentials, no real user data. Keep it under 120 lines. '
+    'Do not use absolute paths in the PoC. Do not add sys.path entries '
+    'with absolute paths, and do not hardcode the repo path or any '
+    'temporary directory: the PoC runs with the repo directory as its '
+    'working directory and the PoC file sits in the repo, so import '
+    'local harness modules by name and use relative paths only. '
     'Return ONLY JSON, no other text: {"poc": "the full PoC source '
     'code as one string", "language": "python", "notes": "one short '
     'sentence on what the PoC does"}'

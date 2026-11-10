@@ -260,3 +260,56 @@ def test_estimate_cost_tool_no_key_needed():
     finally:
         if old is not None:
             os.environ["GMI_API_KEY"] = old
+
+
+def test_triage_prompt_has_missing_verification_clause():
+    """The v0.5.0 fix-pass clause: a complete configuration that
+    omits a required verification is real, judged on the code
+    shown, and still false_positive when the verification is
+    present. The clause must reach the model in the system
+    prompt, not just sit in a comment."""
+    from gmi_security_mcp import prompts as prompts_mod
+
+    prompt = prompts_mod.TRIAGE_PROMPT
+    assert "omits a required verification" in prompt
+    assert "host key verification" in prompt
+    assert "Judge on the code shown" in prompt
+    assert "includes the verification" in prompt
+    seen = {}
+
+    def _call(model, system_content, user_content, max_tokens=2500):
+        seen["system"] = system_content
+        return {
+            "content": '{"verdict": "real", "severity": "medium", '
+            '"confidence": 0.9, "reason": "No host key check.", '
+            '"fix": "Verify the host key."}',
+            "latency_seconds": 0.5,
+            "usage": {"prompt_tokens": 200, "completion_tokens": 20},
+            "error": None,
+            "retried": False,
+            "timeout": False,
+        }
+
+    result = srv.triage_impl(
+        **_base(
+            finding="Semgrep rule custom.ssh-missing-host-key-verification: "
+            "SSH client configuration has no host key verification",
+            code="const sshConfig = {host: config.host, port: config.port, "
+            "username: config.username, readyTimeout: 30000}",
+            check="Missing SSH host key verification",
+            chat_fn=_call,
+        )
+    )
+    assert "omits a required verification" in seen["system"]
+    assert result["verdict"] == "real"
+
+
+def test_poc_prompt_forbids_absolute_paths():
+    """Generated PoCs must not hardcode the generation temp dir:
+    the PoC prompt forbids absolute paths and sys.path inserts
+    with absolute paths."""
+    from gmi_security_mcp import prompts as prompts_mod
+
+    assert "Do not use absolute paths" in prompts_mod.POC_PROMPT
+    assert "sys.path" in prompts_mod.POC_PROMPT
+    assert "relative paths only" in prompts_mod.POC_PROMPT

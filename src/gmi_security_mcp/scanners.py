@@ -338,6 +338,27 @@ def read_snippet(repo_path, rel_file, line, context_lines=25, max_chars=8000):
     return "\n".join(wanted)[:max_chars]
 
 
+def count_field_occurrences(repo_path, rel_file, fields, max_bytes=1024 * 1024):
+    """Count literal occurrences of each field name in one file.
+
+    Returns {field: count}, or None when the file cannot be read
+    or is over max_bytes. Used for custom-rule findings that
+    assert a verification field is absent: the count is factual
+    evidence for triage, not a verdict. A file that cannot be
+    read yields None, never a claimed 0.
+    """
+    if not fields:
+        return {}
+    try:
+        path = Path(repo_path) / rel_file
+        if not path.is_file() or path.stat().st_size > max_bytes:
+            return None
+        text = path.read_text(errors="replace")
+    except (OSError, ValueError):
+        return None
+    return {field: text.count(str(field)) for field in fields}
+
+
 def run_osv_scanner(lockfile_path, timeout=OSV_TIMEOUT_SECONDS,
                     runner=None, binary="osv-scanner"):
     """Run osv-scanner on one lockfile. Returns (advisories, scanned, vulnerable, error).

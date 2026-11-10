@@ -1127,6 +1127,60 @@ def repo_scan_impl(
                 finding.get("rule_id"),
                 finding.get("message") or "",
             )
+            # Custom-rule absence evidence, Phase A3 fix pass: a
+            # rule that asserts a verification field is absent
+            # names its fields in the registry. Count them in the
+            # finding's file and put the factual count into the
+            # triage input. The v0.5.0 live model triaged the
+            # host-key finding false_positive twice because the
+            # 50-line snippet could not show whether a
+            # verification field is set later in the file; the
+            # count answers exactly that question, from the repo,
+            # and it is evidence, not a verdict: the model still
+            # decides. No count is claimed when the file cannot
+            # be read.
+            if finding.get("source") == "custom-rule":
+                bare_rule = rules_mod.strip_rule_prefix(
+                    finding.get("rule_id") or ""
+                )
+                rule_entry = next(
+                    (
+                        entry
+                        for entry in rules_mod.RULES
+                        if entry["id"] == bare_rule
+                    ),
+                    None,
+                )
+                fields = (
+                    list(rule_entry.get("absence_fields") or [])
+                    if rule_entry is not None
+                    else []
+                )
+                if fields:
+                    counts = scanners_mod.count_field_occurrences(
+                        root, finding.get("file") or "", fields
+                    )
+                    if counts is not None:
+                        field_list = ", ".join(fields)
+                        total = sum(counts.values())
+                        finding_text += (
+                            "\n\nEvidence checked in this file, not a "
+                            "model claim: the names %s occur %d times "
+                            "in total in %s (%s). The snippet below is "
+                            "the configuration site at line %s; judge "
+                            "the verification on the code shown plus "
+                            "this count."
+                            % (
+                                field_list,
+                                total,
+                                finding.get("file"),
+                                ", ".join(
+                                    "%s %d" % (field, counts[field])
+                                    for field in fields
+                                ),
+                                finding.get("line"),
+                            )
+                        )
             outcome = triage_impl(
                 finding=finding_text,
                 code=snippet or "",
@@ -2110,14 +2164,16 @@ def verify_impl(
             )
         prompt_text = (
             "Category: %s\nCheck: %s\nSeverity: %s\nReason: %s\nFix: %s\n"
-            "Repo path: %s\n%s\n"
+            "Repo path: the repo directory, which is the working "
+            "directory when the PoC runs. Use relative paths only; "
+            "do not write the repo path or any absolute or temporary "
+            "path into the PoC.\n%s\n"
             % (
                 category,
                 norm["check"],
                 norm["severity"],
                 norm["reason"],
                 norm["fix"],
-                str(root),
                 verify_mod.evidence_contract(category),
             )
         )

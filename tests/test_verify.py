@@ -323,10 +323,43 @@ def test_oracle_host_key_wrong_key_success_reproduced():
             "connected": True,
             "host_key_verified": False,
             "host_key_mismatch": True,
+            "seen_fingerprint": "aa:bb:cc",
+            "expected_fingerprint": "11:22:33",
         }
     )
     status, _assertions = verify_mod.oracle_host_key({}, output, 0)
     assert status == "reproduced"
+
+
+def test_oracle_host_key_mismatch_without_fingerprints_not_reproduced():
+    """A bare mismatch boolean is an assertion, not a measurement:
+    the v0.5.0 live PoC compared a colon-hex fingerprint to a
+    base64 decoy string, which could never match, and the oracle
+    accepted it. It must not reproduce without both fingerprints."""
+    output = json.dumps(
+        {
+            "connected": True,
+            "host_key_verified": False,
+            "host_key_mismatch": True,
+        }
+    )
+    status, assertions = verify_mod.oracle_host_key({}, output, 0)
+    assert status == "not_reproduced"
+    assert "fingerprint" in assertions[0]["detail"]
+
+
+def test_oracle_host_key_equal_fingerprints_not_reproduced():
+    output = json.dumps(
+        {
+            "connected": True,
+            "host_key_verified": False,
+            "host_key_mismatch": True,
+            "seen_fingerprint": "aa:bb:cc",
+            "expected_fingerprint": "aa:bb:cc",
+        }
+    )
+    status, _assertions = verify_mod.oracle_host_key({}, output, 0)
+    assert status == "not_reproduced"
 
 
 def test_oracle_host_key_verified_connection_not_reproduced():
@@ -335,6 +368,8 @@ def test_oracle_host_key_verified_connection_not_reproduced():
             "connected": True,
             "host_key_verified": True,
             "host_key_mismatch": False,
+            "seen_fingerprint": "aa:bb:cc",
+            "expected_fingerprint": "aa:bb:cc",
         }
     )
     status, _assertions = verify_mod.oracle_host_key({}, output, 0)
@@ -347,10 +382,19 @@ def test_oracle_host_key_failed_connection_not_reproduced():
             "connected": False,
             "host_key_verified": False,
             "host_key_mismatch": True,
+            "seen_fingerprint": "aa:bb:cc",
+            "expected_fingerprint": "11:22:33",
         }
     )
     status, _assertions = verify_mod.oracle_host_key({}, output, 0)
     assert status == "not_reproduced"
+
+
+def test_host_key_evidence_contract_requires_measured_fingerprints():
+    contract = verify_mod.evidence_contract("host_key")
+    assert "seen_fingerprint" in contract
+    assert "expected_fingerprint" in contract
+    assert "same format" in contract
 
 
 def test_oracle_unknown_category_skipped():
@@ -833,6 +877,46 @@ def test_verify_fix_candidate_outside_repo_refused(tmp_path):
     )
     assert result["status"] == "error"
     assert "escapes the repo" in result["error"]
+
+
+def test_verify_generation_prompt_has_no_absolute_repo_path(tmp_path):
+    """The PoC generation prompt must not hand the model the
+    absolute repo path: the v0.5.0 live PoC hardcoded the
+    generation temp dir in a sys.path insert. The prompt now
+    names the repo directory only in words, with relative paths."""
+    repo = _repo(tmp_path)
+    seen = {}
+
+    def _capture(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        seen["system"] = system_content
+        return {
+            "content": json.dumps(
+                {
+                    "poc": _poc_text("xss"),
+                    "language": "python",
+                    "notes": "mockllm fixed poc",
+                }
+            ),
+            "latency_seconds": 0.1,
+            "usage": {"prompt_tokens": 200, "completion_tokens": 20},
+            "error": None,
+            "retried": False,
+            "timeout": False,
+        }
+
+    result = srv.verify_impl(
+        finding=_finding("xss"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=False,
+        chat_fn=_capture,
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped"
+    assert str(repo) not in seen["user"]
+    assert "relative paths only" in seen["user"].lower()
+    assert "Do not use absolute paths" in seen["system"]
 
 
 def test_verify_prompt_injection_mockllm(tmp_path):

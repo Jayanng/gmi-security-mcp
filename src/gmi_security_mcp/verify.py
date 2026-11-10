@@ -19,7 +19,11 @@ PoV-is-truth, adapted from 0sec-labs/0:
   oracle is the proof for the ssh-mcp-server host-key finding:
   a connection to a test SSH server with a wrong host key must
   succeed with no hostVerifier and no known_hosts check, and
-  fail after the fix.
+  fail after the fix. The host-key oracle requires a measured
+  fingerprint comparison: seen_fingerprint and
+  expected_fingerprint, both present and different, in the same
+  format. A bare host_key_mismatch boolean with no fingerprints
+  is an assertion, not a measurement, and does not reproduce.
 - Other categories have no oracle in v0.5.0: verify_finding
   returns skipped with "no oracle for this category". No oracle
   is invented, and no model verdict is called an oracle.
@@ -301,28 +305,54 @@ def oracle_host_key(finding, output, exit_code):
     """Missing SSH host key verification oracle.
 
     Evidence object: connected (bool), host_key_verified (bool),
-    host_key_mismatch (bool). Confirmation needs a connection that
-    succeeded while the host key was wrong and unverified: no
-    hostVerifier and no known_hosts check. A connection that
-    failed, or one that verified the key, is not confirmation.
+    host_key_mismatch (bool), seen_fingerprint (str),
+    expected_fingerprint (str). Confirmation needs a connection
+    that succeeded while the host key was wrong and unverified,
+    PROVED by measurement: the fingerprint the client actually
+    saw must be present, the fingerprint of a freshly generated
+    decoy key must be present in the same format, and the two
+    must differ. A bare host_key_mismatch true with no
+    fingerprints is an assertion, not a measurement, and does
+    not reproduce: a PoC can assert mismatch against a fake
+    string that could never match (measured in the v0.5.0 live
+    run, where the PoC compared a colon-hex fingerprint to a
+    base64 decoy string). A connection that failed, or one that
+    verified the key, is not confirmation.
     """
     evidence = _evidence_from_output(output) or {}
     connected = bool(evidence.get("connected"))
     verified = bool(evidence.get("host_key_verified"))
     mismatch = bool(evidence.get("host_key_mismatch"))
-    if connected and mismatch and not verified:
+    seen_fp = str(evidence.get("seen_fingerprint") or "").strip()
+    expected_fp = str(
+        evidence.get("expected_fingerprint")
+        or evidence.get("decoy_fingerprint")
+        or ""
+    ).strip()
+    measured = bool(seen_fp and expected_fp and seen_fp != expected_fp)
+    if connected and mismatch and not verified and measured:
         return "reproduced", [
             _assertion(
                 "wrong_host_key_connection_succeeded",
                 True,
                 "connected to a test SSH server with a wrong host key "
-                "and no verification",
+                "and no verification: seen fingerprint %s differs "
+                "from the expected fingerprint %s"
+                % (seen_fp, expected_fp),
             )
         ]
     if connected and verified:
         detail = "connection succeeded but the host key was verified"
     elif not connected:
         detail = "connection to the test SSH server did not succeed"
+    elif not seen_fp or not expected_fp:
+        detail = (
+            "no measured fingerprint comparison in the evidence: "
+            "seen_fingerprint and expected_fingerprint are both "
+            "required, a bare host_key_mismatch is not a measurement"
+        )
+    elif seen_fp == expected_fp:
+        detail = "seen fingerprint matches the expected fingerprint"
     else:
         detail = "connection succeeded without a host key mismatch to prove it"
     return "not_reproduced", [
@@ -397,8 +427,17 @@ def evidence_contract(category):
             'key, using a client with no host key verification, and '
             'print as the last line a JSON object like {"connected": '
             'true, "host_key_verified": false, "host_key_mismatch": '
-            'true}. The connection must actually succeed while the '
-            'key is wrong and unverified.'
+            'true, "seen_fingerprint": "<fingerprint the client '
+            'actually saw>", "expected_fingerprint": "<fingerprint '
+            'of a freshly generated decoy key, in the same format>"}. '
+            'Measure the mismatch: generate a fresh decoy key, '
+            'compute its fingerprint in the same format as the seen '
+            'fingerprint, and compare the two fingerprints. '
+            'host_key_mismatch must be true only when the two '
+            'fingerprints differ. Never compare a fingerprint to a '
+            'hardcoded string in a different format. The connection '
+            'must actually succeed while the key is wrong and '
+            'unverified.'
         ),
     }
     return contracts.get(category, "")

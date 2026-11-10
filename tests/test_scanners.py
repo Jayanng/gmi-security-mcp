@@ -162,6 +162,30 @@ def test_read_snippet_bounds_lines(tmp_path):
     assert scanners.read_snippet(tmp_path, "missing.py", 1) is None
 
 
+def test_count_field_occurrences_counts_each_field(tmp_path):
+    target = tmp_path / "ssh.ts"
+    target.write_text(
+        "const sshConfig = {host: 'x'};\n"
+        "hostVerifier = null;\n"
+        "// knownHosts mentioned once\n"
+    )
+    counts = scanners.count_field_occurrences(
+        tmp_path, "ssh.ts", ["hostVerifier", "knownHosts", "trustedHostKey"]
+    )
+    assert counts == {
+        "hostVerifier": 1,
+        "knownHosts": 1,
+        "trustedHostKey": 0,
+    }
+
+
+def test_count_field_occurrences_missing_file_is_none_not_zero(tmp_path):
+    assert scanners.count_field_occurrences(
+        tmp_path, "missing.ts", ["hostVerifier"]
+    ) is None
+    assert scanners.count_field_occurrences(tmp_path, "missing.ts", []) == {}
+
+
 def test_find_lockfiles(tmp_path):
     (tmp_path / "package-lock.json").write_text("{}")
     (tmp_path / "sub").mkdir()

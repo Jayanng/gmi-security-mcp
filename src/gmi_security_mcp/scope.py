@@ -195,6 +195,17 @@ def _parse_entry(entry):
         return None, None, "scope entry must be a non-empty string"
     text = entry.strip()
     if ":" in text:
+        # A single colon followed by digits is a host with a port,
+        # not IPv6. Scope entries never carry a port: an exact-host
+        # rule already allows any port on that host, so refuse it
+        # plainly and name the fix, instead of blaming IPv6.
+        parts = text.split(":")
+        if len(parts) == 2 and parts[1].isdigit() and parts[0]:
+            return None, None, (
+                "scope entries do not include ports, refusing %r: "
+                "use %r without the port, an exact-host rule already "
+                "allows any port on that host" % (text, parts[0])
+            )
         return None, None, (
             "IPv6 is not supported in scope entries, refusing %r: "
             "use an IPv4 CIDR or a hostname instead" % text

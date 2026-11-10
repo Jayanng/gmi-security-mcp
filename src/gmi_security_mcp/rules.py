@@ -43,6 +43,13 @@ RULES = [
             "trustedHostKey. The client accepts any host key, so "
             "any server can impersonate the configured host."
         ),
+        # Verification field names whose absence this rule asserts.
+        # repo_scan counts their occurrences in the finding's file
+        # and puts the factual count into the triage input, so the
+        # model does not have to guess from a 50-line snippet
+        # whether a verification field is set later in the file.
+        # A field name here is data from the rule, never a verdict.
+        "absence_fields": ["hostVerifier", "knownHosts", "trustedHostKey"],
         "enabled": True,
     },
     {

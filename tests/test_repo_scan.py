@@ -300,3 +300,90 @@ def test_repo_scan_write_report(tmp_path):
     assert "src/server.js" in text
     assert "Path traversal" in text
     assert result.get("report_written_to") == str(out)
+
+
+def test_repo_scan_custom_host_key_gets_absence_evidence(tmp_path):
+    """The host-key custom finding reaches triage with a factual
+    count of its verification fields in the file. A MockLLM that
+    only calls it real when the count is present proves the
+    evidence reaches the model call; a mock without the count
+    would call it false_positive, as the live model did twice."""
+    repo = tmp_path
+    src = repo / "src"
+    src.mkdir()
+    (src / "ssh.ts").write_text(
+        "async function buildClientConfig(config) {\n"
+        "  const sshConfig = {\n"
+        "    host: config.host,\n"
+        "    port: config.port,\n"
+        "    username: config.username,\n"
+        "    readyTimeout: 30000,\n"
+        "  };\n"
+        "  return sshConfig;\n"
+        "}\n"
+    )
+    custom_payload = {
+        "version": "1.184.0",
+        "results": [
+            {
+                "check_id": "rules.custom.ssh-missing-host-key-verification",
+                "path": "src/ssh.ts",
+                "start": {"line": 2},
+                "extra": {
+                    "message": "SSH client configuration has no host "
+                    "key verification: no hostVerifier, knownHosts, "
+                    "or trustedHostKey.",
+                    "severity": "WARNING",
+                },
+            }
+        ],
+        "errors": [],
+    }
+    empty_payload = {"version": "1.184.0", "results": [], "errors": []}
+
+    def _runner(cmd, timeout):
+        # The custom run passes the rules dir as its --config.
+        if any("rules" in str(part) for part in cmd):
+            return 0, json.dumps(custom_payload), ""
+        return 0, json.dumps(empty_payload), ""
+
+    seen = {}
+
+    def _chat(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        verdict = "real" if "occur 0 times" in user_content else "false_positive"
+        return {
+            "content": json.dumps(
+                {
+                    "verdict": verdict,
+                    "severity": "medium",
+                    "confidence": 0.9,
+                    "reason": "MockLLM: host-key verdict from evidence.",
+                    "fix": "Verify the host key.",
+                }
+            ),
+            "latency_seconds": 0.5,
+            "usage": {"prompt_tokens": 200, "completion_tokens": 20},
+            "error": None,
+            "retried": False,
+            "timeout": False,
+        }
+
+    result = srv.repo_scan_impl(
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        stage2_model=QWEN,
+        pricing=PRICING,
+        semgrep_runner=_runner,
+        semgrep_custom_runner=_runner,
+        chat_fn=_chat,
+        rules_dir=str(Path(__file__).resolve().parents[1] / "rules"),
+    )
+    assert result["findings_total"] == 1
+    finding = result["findings"][0]
+    assert finding["source"] == "custom-rule"
+    assert finding["verdict"] == "real", seen
+    assert "hostVerifier 0" in seen["user"]
+    assert "knownHosts 0" in seen["user"]
+    assert "trustedHostKey 0" in seen["user"]
+    assert "not a model claim" in seen["user"]
