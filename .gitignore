@@ -10,4 +10,6 @@ SPEND.md
 AUDIT-*.md
 *.log
 .DS_Store
+.venv-local/
 .pytest_cache/
+live-12-results-*.json
