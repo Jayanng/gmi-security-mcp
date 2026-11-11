@@ -6,6 +6,31 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [Unreleased]
+
+### Added
+
+- GitHub Actions workflow `.github/workflows/publish.yml`:
+  publish to PyPI with Trusted Publishing (OIDC), no API
+  token, no password, no secret anywhere. Build job builds
+  sdist and wheel with Python 3.13 and checks them with
+  twine, then a separate publish job uploads them with
+  `pypa/gh-action-pypi-publish@v1.14.2` (pinned to commit
+  dc37677b2e1c63e2034f94d8a5b11f265b73ba33), environment `pypi`,
+  `permissions: id-token: write`. Every action in the workflow
+  is pinned to a full commit SHA, not a mutable tag, verified
+  against the GitHub API 2026-11-11, after semgrep flagged the
+  tags. Triggers on a published
+  GitHub release and on manual workflow_dispatch. It does
+  NOT publish anything by itself: the user must first create
+  the pending publisher in PyPI, PyPI Project Name
+  `gmi-security-mcp`, Owner `Jayanng`, Repository name
+  `gmi-security-mcp`, Workflow name `publish.yml`,
+  Environment name `pypi`, at
+  https://pypi.org/manage/account/publishing/. No version
+  bump in this change, version stays 0.5.7, the workflow
+  publishes whatever version a release is cut from.
+
 ## [0.5.7] - 2026-11-11
 
 ### Removed

@@ -1575,3 +1575,65 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   an abstract fixture snippet was correctly called
   false_positive and the fixture was fixed to concrete SQL
   string concatenation.
+
+## 30. Trusted Publishing workflow, no token, 2026-11-11
+
+- User chose Trusted Publishing at 2026-11-11 22:20 WAT, no
+  token stored. The PyPI API token the user already has is
+  NOT used for this route and is not asked for, pasted, or
+  stored anywhere. If the user wants, that token can be
+  revoked or replaced later, it plays no part here.
+- Sources checked first, 2026-11-11, not guessed: PyPI
+  Warehouse docs "Publishing with a Trusted Publisher"
+  (pypi/warehouse, using-a-publisher.md) and the
+  pypa/gh-action-pypi-publish README (release v1.14.2,
+  latest on the releases page that day, diff
+  v1.14.1...v1.14.2). Both say the same: job needs
+  `permissions: id-token: write` at job level, environment
+  is optional but strongly encouraged, build in a separate
+  job from publish, call the action with no username or
+  password, and Trusted Publishing cannot be used from a
+  reusable workflow.
+- Workflow added: `.github/workflows/publish.yml`, name
+  "Publish to PyPI". Triggers: release published, and
+  workflow_dispatch. Build job (contents read only):
+  actions/checkout@v4, actions/setup-python@v5 Python 3.13,
+  `python -m build`, `twine check dist/*`, upload-artifact@v4
+  named dist. Publish job (needs build): environment pypi,
+  url https://pypi.org/p/gmi-security-mcp, permissions
+  id-token write plus contents read, download-artifact@v4,
+  `pypa/gh-action-pypi-publish@v1.14.2`, pinned to commit
+  dc37677b2e1c63e2034f94d8a5b11f265b73ba33 (annotated tag
+  a892a5a61159132606e93a2fa6f4358831b04d26, PGP verified).
+  All five actions are SHA-pinned: checkout v4
+  11d5960a326750d5838078e36cf38b85af677262, setup-python v5
+  a26af69be951a213d495a4c3e4e4022e16d87065, upload-artifact v4
+  ea165f8d65b6e75b540449e92b4886f43607fa02, download-artifact v4
+  d3f86a106a0bac45b974a628896c90dbdf5c8093. The SHA pins were
+  added after semgrep flagged the mutable tags in the first
+  draft (5 findings, github-actions-mutable-action-tag);
+  re-running semgrep after the fix must show 0 findings in
+  the workflow. Attestations (PEP
+  740) stay on by default. No token, password, or secret in
+  the workflow, verified by grep.
+- Pending publisher the user must create in PyPI first, at
+  https://pypi.org/manage/account/publishing/, because the
+  project does not exist yet: PyPI Project Name
+  `gmi-security-mcp`, Owner `Jayanng`, Repository name
+  `gmi-security-mcp`, Workflow name `publish.yml` (the
+  filename, not the workflow `name:`), Environment name
+  `pypi`. Environment is optional on the PyPI form but the
+  workflow sets it, so the record must name it, or the
+  upload fails with invalid-publisher. A GitHub environment
+  named `pypi` is created automatically on first run; no
+  reviewer rule is set, so a release publishes without a
+  manual approval step in GitHub.
+- No version bump with this change. Version stays 0.5.7.
+  The workflow publishes whatever version the release is
+  cut from, so the next step after the pending publisher is
+  a GitHub release v0.5.7, which triggers it. No release
+  was created, no workflow was triggered, nothing was
+  uploaded to PyPI in this pass.
+- Registry still blocked after this: `mcp-publisher login
+  github` is a device flow the user must complete in a
+  browser, after the PyPI page shows 0.5.7.
