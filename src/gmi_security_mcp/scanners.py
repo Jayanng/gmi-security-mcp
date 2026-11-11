@@ -64,7 +64,8 @@ RULE_CHECK_MAP = {
     "package_managers.npm.npm-missing-minimum-release-age.npm-missing-minimum-release-age": "other",
     "javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration": "other",
     "javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring": "other",
-    # Custom rules pack, Phase A3 (v0.5.0), rules/*.yaml. The
+    # Custom rules pack, Phase A3 (v0.5.0),
+    # src/gmi_security_mcp/rules/*.yaml. The
     # host-key rule maps to the check string the host-key oracle
     # matches on, not to one of the 7 known checks, because the
     # oracle keys off the wording "host key".

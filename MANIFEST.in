@@ -1,0 +1,5 @@
+# Ship the package data that the installed server reads at runtime.
+# setuptools package-data covers the wheel; these lines cover the
+# sdist, so a build from the sdist has the same files.
+include src/gmi_security_mcp/rules/*.yaml
+include src/gmi_security_mcp/migrations/*.sql

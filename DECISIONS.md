@@ -1637,3 +1637,50 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
 - Registry still blocked after this: `mcp-publisher login
   github` is a device flow the user must complete in a
   browser, after the PyPI page shows 0.5.7.
+
+## 31. v0.5.8: rules pack and migration ship in the wheel, 2026-11-11
+
+- Gap found by the Hermes PyPI test of 0.5.7: `pip show -f`
+  listed only the Python package, examples-12.json and
+  models-80.json. No rules/ YAML shipped, because the pack lived
+  in rules/ at the repo root, outside the package, and
+  pyproject.toml package-data only covered files inside
+  gmi_security_mcp. A pure PyPI install failed list_rules
+  (0 rules, "custom rules pack not found") and repo_scan ran
+  the default semgrep configs only, with no missing-SSH-host-key
+  rule. The same gap applied to migrations/001_init.sql, which
+  store.py only fell back from; the fallback schema kept the
+  store working, but an installed copy never ran the real
+  migration.
+- Fix: the 8 YAML files moved into src/gmi_security_mcp/rules/
+  and migrations/001_init.sql into
+  src/gmi_security_mcp/migrations/, both added to package-data
+  in pyproject.toml (rules/*.yaml, migrations/*.sql) and to a
+  new MANIFEST.in so the sdist has them too. The YAML sha256
+  values are unchanged by the move. find_rules_dir needed no
+  code change: it already checks the directory next to rules.py
+  first. store.py already checked the package migrations
+  directory. The test fixtures stay in rules/fixtures/ at the
+  repo root, test-only, not shipped. rules/README.md now points
+  at the packaged location.
+- No other package data was missing: models-80.json and
+  examples-12.json already shipped, and no other runtime file
+  is read from the repo root.
+- Version bumped to 0.5.8 in pyproject.toml, __init__.py, and
+  server.json (both fields). Release v0.5.8 via the Trusted
+  Publishing workflow, then mcp-publisher publish with the
+  login token already stored on bug-bounty.
+- Verification: full unit suite 317 passed, 0 failed, locally
+  (109.71s) and on bug-bounty (36.95s). Scanner-verbatim
+  re-audit at $0, report workspace-only AUDIT-2026-11-11-v058.md:
+  122 candidates reviewed (1 semgrep + 117 OSV + 4 agentic),
+  0 confirmed, clean. Pure-install check from the locally built
+  wheel: pip show -f lists all 8 rules YAML and the migration
+  SQL, list_rules returns 8 rules from site-packages with no
+  env var, semgrep with the installed pack fires the host-key
+  rule on the vulnerable fixture and nothing on the fixed
+  fixture. Live re-test, Muse MCP stdio, gemini-3.5-flash-lite,
+  $0.0006302 of the $0.50 cap: list_rules 8, triage SQLi real
+  high 1.0, triage FP false_positive low 1.0, repo_scan 3
+  findings with 1 custom host-key finding, verify supplied PoC
+  reproduced confirmed True.

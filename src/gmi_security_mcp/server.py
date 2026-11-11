@@ -3304,8 +3304,8 @@ def list_rules(
 
     Returns each rule with id, name, category, severity,
     description, and whether it is enabled by default. category
-    filters to one of the 7 known checks. The pack lives in
-    rules/ at the repo root; set GMI_SECURITY_MCP_RULES_DIR when
+    filters to one of the 7 known checks. The pack ships in
+    src/gmi_security_mcp/rules/; set GMI_SECURITY_MCP_RULES_DIR when
     it is elsewhere.
     """
     result = list_rules_impl(category=category)

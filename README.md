@@ -12,6 +12,17 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.8
+
+- The custom semgrep rules pack ships in the wheel now. The 8 YAML
+  files moved from `rules/` at the repo root into
+  `src/gmi_security_mcp/rules/` and are package data, so a pure
+  `pip install gmi-security-mcp` finds all 8 rules with `list_rules`
+  and `repo_scan` runs them. In 0.5.7 a PyPI install found 0 rules.
+  The migration SQL moved the same way, into
+  `src/gmi_security_mcp/migrations/`, so an installed copy runs the
+  real schema instead of the fallback in store.py.
+
 ## What is new in 0.5.7
 
 - No scored corpus is used anywhere in this project any more.
@@ -130,7 +141,7 @@ This server shares triage logic with an earlier, separately submitted product.
 
 - Verification: `verify_finding` proves a finding with a deterministic oracle and a runnable PoC. A model verdict alone never sets confirmation. See [Verification](#verification).
 - Findings store: five store tools keep every triaged finding, verdict, and verification in a per-user SQLite database. See [Findings](#findings).
-- Custom rules: a semgrep rules pack in `rules/` with 8 rules, including one for missing SSH host key verification. `repo_scan` runs the pack alongside the default config and tags its findings `source: custom-rule`. See [Custom Rules](#custom-rules).
+- Custom rules: a semgrep rules pack in `src/gmi_security_mcp/rules/` with 8 rules, including one for missing SSH host key verification. `repo_scan` runs the pack alongside the default config and tags its findings `source: custom-rule`. See [Custom Rules](#custom-rules).
 - Scope: a fail-closed scope plugin with `scope_enable` and `scope_disable`, `--require-scope`, and an `--allow-apply` double gate for file writes. See [Scope](#scope).
 
 ## What it does
@@ -493,7 +504,7 @@ never discards a verdict: the tool returns the verdict with a
 
 ## Custom Rules
 
-`repo_scan` runs the custom rules pack in `rules/` alongside
+`repo_scan` runs the custom rules pack in `src/gmi_security_mcp/rules/` alongside
 the default semgrep config (`p/default`, `p/security-audit`,
 `p/python`, `p/javascript`, `p/secrets`, unchanged). The pack
 is 8 rules, one YAML file per rule, listed by `list_rules`:
@@ -806,7 +817,7 @@ per-run log. The spend log is not shipped in the repo.
   user's approval for that exact destination. A public PR discloses
   the flaw.
 - Semgrep rules miss some flaws. The custom pack covers the 8
-  rules in `rules/`, but a clean repo_scan means no semgrep
+  rules in `src/gmi_security_mcp/rules/`, but a clean repo_scan means no semgrep
   finding triaged real, not that the repo has no flaws.
 - osv-scanner needs exact versions and network access to the OSV
   API. A lockfile with only ranges, or a machine that cannot reach
@@ -857,9 +868,10 @@ gmi-security-mcp/
     rules.py       custom rules registry and loader
     models-80.json pricing, 73 entries, 73 unique ids
     examples-12.json  the 12 examples, shipped as package data
-  rules/           custom semgrep rules pack, 8 rules, fixtures, README
-  migrations/
-    001_init.sql   schema v1: scans, targets, findings, verdicts, pipelineEvents, triageMemories, cases, workItems, artifacts
+    rules/         custom semgrep rules pack, 8 rules, shipped as package data
+    migrations/
+      001_init.sql schema v1, shipped as package data
+  rules/           test fixtures and README for the rules pack
   tests/
     test_validate.py
     test_cost_redact.py

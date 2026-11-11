@@ -54,9 +54,10 @@ DEFAULT_DIR_NAME = ".gmi-security-mcp"
 DEFAULT_DB_NAME = "findings.db"
 
 # Fallback schema, used only when migrations/001_init.sql cannot
-# be found (for example an installed copy without the migrations
-# directory). It is identical to that file; the file is the
-# source of truth and this copy is kept in step with it.
+# be found. Since v0.5.8 the migration ships inside the package,
+# so the fallback is a last resort only. It is identical to that
+# file; the file is the source of truth and this copy is kept in
+# step with it.
 _FALLBACK_SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY,

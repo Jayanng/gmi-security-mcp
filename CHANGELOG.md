@@ -31,7 +31,40 @@ section.
   bump in this change, version stays 0.5.7, the workflow
   publishes whatever version a release is cut from.
 
+## [0.5.8] - 2026-11-11
+
+### Fixed
+
+- The custom semgrep rules pack ships in the wheel now. The 8 YAML
+  files moved from `rules/` at the repo root into
+  `src/gmi_security_mcp/rules/` and are package data in
+  pyproject.toml (`rules/*.yaml`), with a MANIFEST.in entry so the
+  sdist has them too. In 0.5.7 a pure `pip install gmi-security-mcp`
+  found 0 rules: `list_rules` errored with "custom rules pack not
+  found" and `repo_scan` ran the default semgrep configs only, with
+  no missing-SSH-host-key rule. The pack is found with no explicit
+  dir and no `GMI_SECURITY_MCP_RULES_DIR` set, verified from a
+  fresh-venv install of the local wheel. The test fixtures stay in
+  `rules/fixtures/` at the repo root; they are test-only and are
+  not shipped.
+- The migration SQL ships in the wheel too, for the same reason:
+  `migrations/001_init.sql` moved into
+  `src/gmi_security_mcp/migrations/` and is package data
+  (`migrations/*.sql`). An installed copy now runs the real schema
+  instead of the fallback schema in store.py. No other package
+  data was missing: models-80.json and examples-12.json already
+  shipped, and no other runtime file is read from the repo root.
+
+### Tests, v0.5.8 pass
+
+- Full unit suite: 317 passed, 0 failed, locally (109.71s) and
+  on bug-bounty (36.95s). Two new tests: the packaged pack is
+  found with no explicit dir and no env var, and the packaged
+  migration SQL is present in the package and matches the
+  fallback schema statement for statement.
+
 ## [0.5.7] - 2026-11-11
+
 
 ### Removed
 

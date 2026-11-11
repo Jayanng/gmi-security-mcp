@@ -1,9 +1,12 @@
 """Custom semgrep rules pack registry, Phase A3 (v0.5.0).
 
-The rules themselves live as YAML in rules/ at the repo root, one
-file per rule. This module is the registry for list_rules and the
-loader the server uses to find the pack and to normalise the rule
-ids semgrep reports.
+The rules themselves live as YAML in
+src/gmi_security_mcp/rules/, one file per rule, and ship as
+package data in the wheel and sdist (v0.5.8: they used to live
+in rules/ at the repo root, which setuptools never shipped, so
+a pure PyPI install found no pack). The test fixtures stay in
+rules/fixtures/ at the repo root; they are test-only and are
+not shipped.
 
 Semgrep prefixes a rule id with the config directory name when
 the config is a directory or a file in a directory, for example
@@ -166,9 +169,10 @@ def find_rules_dir(explicit=None):
     """Locate the rules/ directory, or None when it is not found.
 
     Order: an explicit path, the GMI_SECURITY_MCP_RULES_DIR
-    environment variable, then a rules/ directory found by walking
-    up from this file (a repo checkout), then a rules/ directory
-    next to the installed package. An explicit path or an env
+    environment variable, then a rules/ directory next to this
+    file (the shipped package data, src/gmi_security_mcp/rules/),
+    then a rules/ directory found by walking up from this file
+    (a repo checkout). An explicit path or an env
     value that does not contain the pack is authoritative: it
     returns None instead of silently falling back to another
     checkout. A missing pack is not an error here: the caller

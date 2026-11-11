@@ -11,7 +11,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from gmi_security_mcp import rules as rules_mod  # noqa: E402
 from gmi_security_mcp import server as srv
+
+# The pack ships inside the package (v0.5.8), not in rules/ at the
+# repo root any more.
+PACKAGED_RULES_DIR = Path(rules_mod.__file__).resolve().parent / "rules"
 
 PRICING = {
     "google/gemini-3.5-flash-lite": (0.000000300, 0.000002500),
@@ -377,7 +382,7 @@ def test_repo_scan_custom_host_key_gets_absence_evidence(tmp_path):
         semgrep_runner=_runner,
         semgrep_custom_runner=_runner,
         chat_fn=_chat,
-        rules_dir=str(Path(__file__).resolve().parents[1] / "rules"),
+        rules_dir=str(PACKAGED_RULES_DIR),
     )
     assert result["findings_total"] == 1
     finding = result["findings"][0]

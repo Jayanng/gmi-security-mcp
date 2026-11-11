@@ -2,15 +2,18 @@
 
 Eight rules the default semgrep packs do not cover, or cover only
 as patterns without the missing-logic check. Each rule has one YAML
-file in this directory, a vulnerable fixture and a fixed fixture in
-`fixtures/`, and a test in `tests/test_rules.py` that runs the real
+file in `src/gmi_security_mcp/rules/` (v0.5.8: the pack used to
+live in this directory, which the wheel never shipped, so a pure
+PyPI install found 0 rules; the YAML files moved into the package
+and ship as package data), a vulnerable fixture and a fixed fixture in
+`fixtures/` in this directory, and a test in `tests/test_rules.py` that runs the real
 semgrep binary against both fixtures.
 
 Run the whole pack with a separate `--config` flag per config, never
 a comma list:
 
 ```
-semgrep scan --config rules/ --json <repo>
+semgrep scan --config src/gmi_security_mcp/rules/ --json <repo>
 ```
 
 A single `--config` with a comma list 404s and silently returns 0

@@ -21,8 +21,11 @@ from gmi_security_mcp import scanners as scanners_mod  # noqa: E402
 from gmi_security_mcp import server as srv  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-RULES_DIR = ROOT / "rules"
-FIXTURES = RULES_DIR / "fixtures"
+# The pack ships inside the package (v0.5.8), so the rules dir
+# is next to rules.py, not rules/ at the repo root. Fixtures
+# stay at the repo root and are test-only, not shipped.
+RULES_DIR = Path(rules_mod.__file__).resolve().parent / "rules"
+FIXTURES = ROOT / "rules" / "fixtures"
 
 PRICING = {
     "google/gemini-3.5-flash-lite": (0.000000300, 0.000002500),
@@ -115,6 +118,48 @@ def test_list_rules_category_filter_mockllm():
     bad = srv.list_rules_impl(category="No such check")
     assert bad["error"] is not None
     assert bad["rules"] == []
+
+
+def test_packaged_rules_found_without_checkout_or_env(monkeypatch):
+    """The shipped pack is found with no explicit dir and no env
+    var (v0.5.8: the pack used to live at the repo root, which
+    the wheel never shipped, so a pure PyPI install found 0
+    rules). The found dir must be inside the installed package,
+    not a repo checkout."""
+    monkeypatch.delenv("GMI_SECURITY_MCP_RULES_DIR", raising=False)
+    found = rules_mod.find_rules_dir()
+    assert found is not None
+    assert found == RULES_DIR
+    assert (found / "ssh-host-key.yaml").is_file()
+    rules, error = rules_mod.load_rules()
+    assert error is None
+    assert len(rules) == 8
+
+
+def test_packaged_migration_sql_in_package():
+    """migrations/001_init.sql ships inside the package too
+    (v0.5.8), so an installed copy runs the real migration
+    instead of the fallback schema in store.py. The fallback
+    must stay in step with the file: same statements, ignoring
+    the file's header comments and blank lines."""
+    from gmi_security_mcp import store as store_mod
+
+    package_dir = Path(store_mod.__file__).resolve().parent
+    migration = package_dir / "migrations" / "001_init.sql"
+    assert migration.is_file()
+    assert "schema_version" in migration.read_text()
+
+    def _statements(sql):
+        lines = [
+            line.strip()
+            for line in sql.splitlines()
+            if line.strip() and not line.strip().startswith("--")
+        ]
+        return "\n".join(lines)
+
+    assert _statements(store_mod._FALLBACK_SCHEMA) == _statements(
+        migration.read_text()
+    )
 
 
 def test_map_rule_to_check_custom_rules():

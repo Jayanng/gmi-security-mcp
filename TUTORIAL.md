@@ -602,7 +602,7 @@ evidence without overriding the triage verdict.
 
 ## 11. Run the custom rules
 
-`repo_scan` runs the custom rules pack in `rules/` alongside
+`repo_scan` runs the custom rules pack in `src/gmi_security_mcp/rules/` alongside
 the default semgrep config. The sample repo is
 classfang/ssh-mcp-server, cloned for the v0.5.0 live run.
 The target file is 90.8 KB, so the file cap is raised to
