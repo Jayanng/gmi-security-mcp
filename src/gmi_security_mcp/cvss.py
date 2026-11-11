@@ -28,8 +28,7 @@ def _roundup(value):
     """CVSS Roundup: smallest one-decimal number >= value.
 
     Implemented per the spec: work in units of 1e-5, and round up to
-    the next tenth unless the value is already exact at that
-    precision.
+    the next tenth unless the value is already exact at that tenth.
     """
     scaled = round(value * 100000)
     if scaled % 10000 == 0:

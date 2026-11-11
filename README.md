@@ -12,6 +12,16 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.7
+
+- No scored corpus is used anywhere in this project any more.
+  The 50- and 56-finding test files and the live scored-run
+  script are removed from the repo, and no score from them is
+  claimed. Validation follows the scanner-verbatim method:
+  agentic source-to-sink review, triage, and a PoC gate for
+  provisional High/Critical findings. The 12 real Live Triage
+  examples stay, they are examples, not a score.
+
 ## What is new in 0.5.5
 
 - `verify_finding` PoC generation now names the harness
@@ -93,11 +103,11 @@ This server shares triage logic with an earlier, separately submitted product.
   can force the refusal path.
 - Triage prompt gains one narrow presence-flaw clause for
   hardcoded credentials and passwords or private keys in
-  logs. Live dataset-50 stays 47/50: the clause did not
-  move Gemini 3.5 Flash Lite on S10, S11, and S24, and
-  broke nothing. See DECISIONS.md section 23 for the
-  honest record of why that gap is model judgement on
-  redacted values, not a wording gap.
+  logs. The clause did not move Gemini 3.5 Flash Lite on
+  redacted hardcoded-secret examples, and broke nothing.
+  See DECISIONS.md section 23 for the honest record of why
+  that gap is model judgement on redacted values, not a
+  wording gap.
 
 ## What is new in 0.5.1
 
@@ -509,7 +519,7 @@ classfang/ssh-mcp-server it fires at
 missing host key verification flaw, and is silent on the fixed
 branch, which verifies the host key against known_hosts.
 
-Per-rule precision is measured in `rules/README.md` on the test
+Per-rule hit counts are measured in `rules/README.md` on the test
 repos, not asserted from the rule text. On ssh-mcp-server src
 and the benchmark test repo the whole pack returns exactly 1
 hit, the host-key true positive. No rule is over the 50%
@@ -699,18 +709,16 @@ above $5.00.
 | `repo_scan` on classfang/ssh-mcp-server, file cap raised to 100 KB, 13 findings triaged, all false positive | $0.006877 |
 | `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.0, file cap 200 KB, 14 findings triaged (13 default + 1 custom), 0 real, 13 false positive, 1 no verdict | $0.005798 |
 | `repo_scan` on classfang/ssh-mcp-server with the custom rules pack, v0.5.1 fix pass, 14 findings triaged, 1 real (host-key, 0.95), 13 false positive | $0.005954 |
-| The 50-finding dataset through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass: 47 of 50 correct, accuracy 0.940, precision 1.000, recall 0.880, 0 unparsed | $0.0136399 |
-| The 50-finding dataset through this server, Gemini 3.5 Flash Lite, v0.5.2 fix pass, after the presence-flaw prompt clause: 47 of 50 correct, accuracy 0.940, precision 1.000, recall 0.880, 0 unparsed, same three failures (S10, S11, S24) | $0.0151149 |
-| The 56-finding dataset-v2 through this server, Gemini 3.5 Flash Lite, v0.5.1 fix pass, first live score: 53 of 56 correct, accuracy 0.946, precision 1.000, recall 0.893, 0 unparsed | $0.015404 |
+| Scored-corpus live runs, v0.5.1 and v0.5.2 fix passes: removed in v0.5.7, no score is claimed for them now; the spend is kept as a spend record only | $0.0136399 + $0.0151149 + $0.015404 |
 | Muse agent-side test, all 15 tools over MCP stdio, v0.5.1 fix pass | $0.001867 |
 | `explain_cve` on CVE-2021-44228 with Gemini 3.5 Flash Lite | $0.0010385 |
-| The 50-finding dataset through this server, Gemini 3.5 Flash Lite: 48 of 50 correct, accuracy 0.960, precision 1.000, recall 0.920, 0 unparsed | $0.0117599 |
+| Scored-corpus live run, v0.4.0: removed in v0.5.7, no score is claimed for it now; the spend is kept as a spend record only | $0.0117599 |
 | DeepSeek on run_benchmark.py, twice, no verdict either time | $0.008521 |
 
 Live spend for v0.5.0, all with Gemini 3.5 Flash Lite Stage 1
 only: Phase A1 $0.004749 (5 oracle PoC generations), Phase A2
-$0.0153807 (12 examples $0.0036083, 50-finding dataset
-$0.0117724), Phase A3 $0.007425 (repo_scan $0.005798, PoC
+$0.0153807 (12 examples $0.0036083, scored-corpus run
+$0.0117724, removed in v0.5.7), Phase A3 $0.007425 (repo_scan $0.005798, PoC
 generation $0.000815 + $0.000812, oracle run $0.00). Total
 v0.5.0 live $0.0275547 of the $5.00 hard stop. The plan
 estimate for v0.5.0 was $0.50 to $1.15; actuals came in well
@@ -813,10 +821,10 @@ per-run log. The spend log is not shipped in the repo.
   so the timeout does not reproduce every run.
 - A fixed version is reported only when the advisory states one.
   Some advisories list only a last affected version.
-- The 50-finding dataset score (47 of 50 in the v0.5.1 fix pass,
-  48 of 50 in v0.5.0) is one run on one model. The 56-finding
-  dataset-v2.json was run live for the first time in the v0.5.1
-  fix pass: 53 of 56. Both scores are one run on one model.
+- No scored corpus is used for validation. Scored-corpus runs
+  from v0.4.0 to v0.5.2 were removed in v0.5.7: no score from
+  them is claimed. Validation is scanner-verbatim: scanners, agentic
+  source-to-sink review, triage, and a PoC gate.
 
 ## Repo structure
 
@@ -871,7 +879,6 @@ gmi-security-mcp/
     fixtures/      small lockfiles for the parser tests, verify harness PoCs
   scripts/
     run-12-examples.py   thin wrapper around mcp-test
-    run-dataset-50.py    live test, 50-finding dataset, real GMI calls
     run-repo-scan.py     live test, repo_scan, real GMI calls
     run-osv-check.py     live test, OSV tools, real GMI calls for explain
     call-tool.py         call one tool, print the raw JSON result
@@ -880,8 +887,6 @@ gmi-security-mcp/
     codex.toml         config snippet for Codex
     cursor.json        config snippet for Cursor
   models-80.json   pricing, 73 entries, 73 unique ids
-  dataset.json     50 findings, 25 real, 25 false positive
-  dataset-v2.json  56 findings, not run live in v0.5.0, no score claimed on it
   examples/        the 12 examples, one file each, plus examples-12.json
 ```
 
@@ -948,11 +953,11 @@ See CHANGELOG.md for the full log. Headlines:
   Codex 0.164.0 tested for registration and tools/list. Cursor not
   tested.
 - 0.3.0, 2026-11-10, Phases 4 and 5: disclosure drafting, hardening
-  and privacy fixes, redaction note to the model, 50-finding dataset
-  live at 48 of 50, 12 examples re-run at 9 and 10 of 12.
+  and privacy fixes, redaction note to the model, 12 examples
+  re-run at 9 and 10 of 12.
 - 0.2.0, 2026-11-10, Phases 2 and 3: repo_scan with two-stage
   triage, check_osv_advisory, explain_cve, live repo tests.
 - 0.1.0, 2026-11-10, Phase 1: core server, triage_semgrep_finding,
   estimate_cost, 12 examples live at 9 of 12.
 - 0.0.1, 2026-11-10, Phase 0: repo, SDK 2.3.0 verified, decisions
-  recorded, pricing and dataset copied from the audit tool.
+  recorded, pricing copied from the audit tool.

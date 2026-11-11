@@ -86,17 +86,17 @@
       "n": 9,
       "title": "Pickle deserialization RCE, CWE-502",
       "expected_verdict": "real",
-      "expected": "REAL - critical. Insecure deserialization, CWE-502, dataset finding S14. Fix: use json.loads, or signed / allowlisted data only.",
+      "expected": "REAL - critical. Insecure deserialization, CWE-502, example 9 finding. Fix: use json.loads, or signed / allowlisted data only.",
       "check": null,
-      "finding": "Semgrep finding, dataset S14, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing.",
-      "code": "Semgrep finding, dataset S14, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing."
+      "finding": "Semgrep finding, example 9, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing.",
+      "code": "Semgrep finding, example 9, insecure deserialization, CWE-502.\nCode in app.py:\n\nimport pickle\nobj = pickle.loads(request.data)\n\nrequest.data is untrusted, attacker-controlled bytes. Unpickling it can construct arbitrary Python objects and execute arbitrary code during deserialization. This is the same class as the Jackson-databind and Java deserialization flaws that have produced real CVEs. Fix: do not unpickle untrusted data. Use json.loads for plain data, or verify a signature and an allowlist before deserializing."
     },
     {
       "id": "ssrffp",
       "n": 10,
       "title": "False positive, SSRF allowlisted host",
       "expected_verdict": "false_positive",
-      "expected": "FALSE POSITIVE - low. Dataset finding F05. A fixed URL is not user-controlled, so there is no SSRF.",
+      "expected": "FALSE POSITIVE - low. Example 10 finding. A fixed URL is not user-controlled, so there is no SSRF.",
       "check": "Server-side request forgery (SSRF)",
       "finding": "Semgrep flagged: possible SSRF, server-side request.\nCode in status.py:\n\nresp = requests.get(\"https://api.gmicloud.ai/v1/models\", timeout=5)\n\nThe URL is a fixed constant, not user-controlled, and it is GMI Cloud's own API host. There is no attacker-controlled URL reaching an internal service or cloud metadata endpoint. Fix: none needed, this is a false positive. Mark it as such and do not change the code.",
       "code": "Semgrep flagged: possible SSRF, server-side request.\nCode in status.py:\n\nresp = requests.get(\"https://api.gmicloud.ai/v1/models\", timeout=5)\n\nThe URL is a fixed constant, not user-controlled, and it is GMI Cloud's own API host. There is no attacker-controlled URL reaching an internal service or cloud metadata endpoint. Fix: none needed, this is a false positive. Mark it as such and do not change the code."
@@ -106,7 +106,7 @@
       "n": 11,
       "title": "False positive, XSS via textContent",
       "expected_verdict": "false_positive",
-      "expected": "FALSE POSITIVE - low. Dataset finding F04. textContent does not parse HTML, so there is no XSS.",
+      "expected": "FALSE POSITIVE - low. Example 11 finding. textContent does not parse HTML, so there is no XSS.",
       "check": "Cross-site scripting (XSS)",
       "finding": "Semgrep flagged: possible DOM XSS.\nCode in profile.js:\n\nel.textContent = userName\n\nuserName comes from the user, but it is assigned to textContent, not innerHTML. textContent treats the value as plain text and does not parse it as HTML or JavaScript, so no script can execute. Fix: none needed, this is a false positive. If the code used el.innerHTML = userName, that would be real DOM XSS.",
       "code": "Semgrep flagged: possible DOM XSS.\nCode in profile.js:\n\nel.textContent = userName\n\nuserName comes from the user, but it is assigned to textContent, not innerHTML. textContent treats the value as plain text and does not parse it as HTML or JavaScript, so no script can execute. Fix: none needed, this is a false positive. If the code used el.innerHTML = userName, that would be real DOM XSS."
@@ -116,7 +116,7 @@
       "n": 12,
       "title": "False positive, parameterised SQL",
       "expected_verdict": "false_positive",
-      "expected": "FALSE POSITIVE - low. Dataset finding F01. Parameters are bound safely, so there is no SQL injection.",
+      "expected": "FALSE POSITIVE - low. Example 12 finding. Parameters are bound safely, so there is no SQL injection.",
       "check": "SQL injection",
       "finding": "Semgrep flagged: possible SQL injection, string formatting in query.\nCode in reports/queries.py:\n\ndef orders_for_user(db, user_id):\n    # user_id comes from the session, and the value is bound as a parameter\n    return db.execute(\n        \"SELECT * FROM orders WHERE user_id = ?\",\n        (user_id,),\n    ).fetchall()\n\nThe query uses a placeholder and the value is bound as a parameter by the database driver, so user input cannot break out of the query and inject SQL. Fix: none needed, this is a false positive.",
       "code": "Semgrep flagged: possible SQL injection, string formatting in query.\nCode in reports/queries.py:\n\ndef orders_for_user(db, user_id):\n    # user_id comes from the session, and the value is bound as a parameter\n    return db.execute(\n        \"SELECT * FROM orders WHERE user_id = ?\",\n        (user_id,),\n    ).fetchall()\n\nThe query uses a placeholder and the value is bound as a parameter by the database driver, so user input cannot break out of the query and inject SQL. Fix: none needed, this is a false positive."

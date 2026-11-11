@@ -2,7 +2,7 @@
 
 Expected verdict: false_positive
 
-Expected: FALSE POSITIVE - low. Dataset finding F04. textContent does not parse HTML, so there is no XSS.
+Expected: FALSE POSITIVE - low. Example 11 finding. textContent does not parse HTML, so there is no XSS.
 
 Check: Cross-site scripting (XSS)
 

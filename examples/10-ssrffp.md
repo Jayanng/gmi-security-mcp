@@ -2,7 +2,7 @@
 
 Expected verdict: false_positive
 
-Expected: FALSE POSITIVE - low. Dataset finding F05. A fixed URL is not user-controlled, so there is no SSRF.
+Expected: FALSE POSITIVE - low. Example 10 finding. A fixed URL is not user-controlled, so there is no SSRF.
 
 Check: Server-side request forgery (SSRF)
 

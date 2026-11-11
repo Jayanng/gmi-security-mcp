@@ -578,8 +578,8 @@ updated 2026-11-10T10:59:23.234583+00:00. The store keeps the
 history: three verdict rows (false_positive, false_positive,
 real) and five verification rows (skipped, reproduced as a
 regression check, skipped, error from a buggy generated PoC,
-reproduced as a confirmation). The fix-pass dataset-v2 live
-run added 6 new findings, so the total is now 81.
+reproduced as a confirmation). A later live run added 6 new
+findings, so the total is now 81.
 
 `get_finding` returns one finding in full, with its history:
 

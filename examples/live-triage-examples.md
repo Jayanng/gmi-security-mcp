@@ -8,10 +8,10 @@
 6. 6 - Struts2 OGNL, CVE-2017-5638, Equifax - REAL - critical. CVE-2017-5638, Apache Struts2 2.3.5-2.3.31 / 2.5-2.5.10, CVSS 10.0, S2-045, Mar 2017, Equifax breach, 147 million people. Fix: 2.3.32 / 2.5.10.1.
 7. 7 - PAN-OS command injection, CVE-2024-3400 - REAL - critical. CVE-2024-3400, Palo Alto PAN-OS 10.2 / 11.0 / 11.1 GlobalProtect, CVSS 10.0, Apr 2024, Operation MidnightEclipse, CISA KEV. Fix: 10.2.9-h1 / 11.0.4-h1 / 11.1.2-h3.
 8. 8 - XZ supply chain, CVE-2024-3094, OSV finding - REAL - critical. CVE-2024-3094, XZ Utils 5.6.0 / 5.6.1, CVSS 10.0, disclosed 29 Mar 2024 by Andres Freund. Fix: downgrade to 5.4.6 or upgrade to 5.6.2.
-9. 9 - Pickle deserialization RCE, CWE-502 - REAL - critical. Insecure deserialization, CWE-502, dataset finding S14. Fix: use json.loads, or signed / allowlisted data only.
-10. 10 - False positive, SSRF allowlisted host - FALSE POSITIVE - low. Dataset finding F05. A fixed URL is not user-controlled, so there is no SSRF.
-11. 11 - False positive, XSS via textContent - FALSE POSITIVE - low. Dataset finding F04. textContent does not parse HTML, so there is no XSS.
-12. 12 - False positive, parameterised SQL - FALSE POSITIVE - low. Dataset finding F01. Parameters are bound safely, so there is no SQL injection.
+9. 9 - Pickle deserialization RCE, CWE-502 - REAL - critical. Insecure deserialization, CWE-502, example 9 finding. Fix: use json.loads, or signed / allowlisted data only.
+10. 10 - False positive, SSRF allowlisted host - FALSE POSITIVE - low. Example 10 finding. A fixed URL is not user-controlled, so there is no SSRF.
+11. 11 - False positive, XSS via textContent - FALSE POSITIVE - low. Example 11 finding. textContent does not parse HTML, so there is no XSS.
+12. 12 - False positive, parameterised SQL - FALSE POSITIVE - low. Example 12 finding. Parameters are bound safely, so there is no SQL injection.
 
-Verified live 2026-11-09: CVE-2021-44228, CVE-2026-59243, CVE-2022-22965, CVE-2023-34362, CVE-2021-41773, CVE-2017-5638, CVE-2024-3400, CVE-2024-3094. Dataset findings S14, F05, F04, F01 from dataset.json (50 findings, 2026-11-08).
+Verified live 2026-11-09: CVE-2021-44228, CVE-2026-59243, CVE-2022-22965, CVE-2023-34362, CVE-2021-41773, CVE-2017-5638, CVE-2024-3400, CVE-2024-3094. Examples 9 to 12 are the four non-CVE examples, written from representative code.
 Representative code is labelled as such where the vendor source is proprietary (MOVEit, PAN-OS); the FAB code is from the Flask-AppBuilder docs, and the other CVE entries give the real product, versions, dates and fix.

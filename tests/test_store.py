@@ -3,9 +3,10 @@
 The chat function is a deterministic MockLLM stub that returns a
 fixed verdict, labelled mockllm in the test names and in the log
 lines. MockLLM proves the code does not crash and the store
-writes; it is a regression floor, never a live accuracy claim.
-Dataset-v2 (56 findings) runs under MockLLM only in this cut,
-never live, never reported as live accuracy.
+writes; it is a regression floor, never a live model claim.
+No scored corpus is used here: validation is deterministic
+unit tests on small local fixtures, real scanner output, and
+PoC oracle reproduction.
 """
 
 import json
@@ -919,41 +920,73 @@ def test_disclosure_refuses_finding_not_in_store_mockllm(tmp_path):
     assert "not in the findings store" in out["error"]
 
 
-# --- dataset-v2 MockLLM floor ---------------------------------------------------
+# --- Deterministic store floor, local fixtures, no scored corpus -------
+# Replaces the old scored-corpus floor test (removed in v0.5.7):
+# three small local findings, each triaged with a deterministic
+# fixed-response stub, each stored, no score computed, no corpus
+# file read. The dedup behaviour the old test proved is kept in
+# Deterministic form: re-triaging identical code and check stores no new
+# finding, by design.
 
 
-def test_dataset_v2_mockllm_floor(tmp_path):
-    """Regression floor only: 56 findings through triage with a
-    fixed MockLLM verdict, all stored. Never live, never reported
-    as live accuracy."""
-    data = json.loads((ROOT / "dataset-v2.json").read_text())
-    findings = data["findings"]
-    assert len(findings) == 56
+def test_store_triage_on_local_fixtures(tmp_path):
+    """Store floor, deterministic: local fixtures only, no corpus."""
     db = _db(tmp_path)
-    stored = 0
-    for item in findings:
+    cases = [
+        (
+            "SQL injection in app.py",
+            "cursor.execute(\"SELECT * FROM users WHERE id = '\" + user_id + \"'\")",
+            "SQL injection",
+            _mockllm_chat("real", confidence=0.9),
+            "real",
+        ),
+        (
+            "Parameterised query in app.py",
+            "cursor.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,))",
+            "SQL injection",
+            _mockllm_chat("false_positive", confidence=0.9, severity="low"),
+            "false_positive",
+        ),
+        (
+            "Fixed URL fetch in app.py",
+            "requests.get(\"https://example.com/health\")",
+            "SSRF",
+            _mockllm_chat("false_positive", confidence=0.9, severity="low"),
+            "false_positive",
+        ),
+    ]
+    stored_ids = []
+    for title, code, check, chat_fn, expected in cases:
         result = srv.triage_impl(
-            finding="%s. %s" % (item["title"], item["explanation"]),
-            code=item["code"],
-            check=item.get("category"),
+            finding=title,
+            code=code,
+            check=check,
             stage1_model=CHEAP,
-            chat_fn=_mockllm_chat("real", confidence=0.9),
+            chat_fn=chat_fn,
             pricing=PRICING,
             db_path=db,
         )
-        assert result["verdict"] == "real"
+        assert result["verdict"] == expected
         assert result["finding_id"]
-        stored += 1
-    assert stored == 56
+        stored_ids.append(result["finding_id"])
+    assert len(set(stored_ids)) == 3
     listed = srv.list_findings_impl(limit=100, db_path=db)
-    # S10 and F11 share identical code and check, so the store
-    # deduplicates them into one finding, by design.
-    assert listed["total"] == 55
+    assert listed["total"] == 3
     assert listed["error"] is None
-    print(
-        "mockllm dataset-v2 floor: stored %d/56 calls, %d unique "
-        "findings (S10/F11 share identical code)" % (stored, 55)
+    # Dedup: identical code and check refreshes the existing
+    # finding instead of creating a duplicate.
+    again = srv.triage_impl(
+        finding=cases[0][0],
+        code=cases[0][1],
+        check=cases[0][2],
+        stage1_model=CHEAP,
+        chat_fn=_mockllm_chat("real", confidence=0.9),
+        pricing=PRICING,
+        db_path=db,
     )
+    assert again["finding_id"] == stored_ids[0]
+    listed = srv.list_findings_impl(limit=100, db_path=db)
+    assert listed["total"] == 3
 
 
 def test_validate_status_transition_mockllm():

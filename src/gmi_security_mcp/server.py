@@ -327,8 +327,8 @@ def triage_impl(
         # value. Without this note the model sees `API_KEY =
         # '[REDACTED]'` and cannot tell a real hardcoded secret from
         # a placeholder, so it triages hardcoded-secret findings as
-        # false positives. Measured 2026-11-10 on the 50-finding
-        # dataset: S10 and S11 failed that way before this note.
+        # false positives. Redacted hardcoded-secret examples failed
+        # that way before this note.
         redacted_text += (
             "\n\n[Note: %d secret-shaped value(s) in the code above "
             "were replaced with [REDACTED] before this call. A "

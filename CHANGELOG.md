@@ -6,6 +6,51 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.7] - 2026-11-11
+
+### Removed
+
+- No scored corpus is used anywhere in this project any more.
+  The two scored test files and the live scored-run script
+  are removed from the repo and archived workspace-only at
+  `~/workspace/gmi-clouder/.scratch/scored-corpus-archive-2026-11-11/`,
+  with sha256 recorded there. `.gitignore` now lists the three
+  names so they cannot be re-added by accident. No score from
+  them is claimed anywhere in the repo: every scored-corpus
+  claim in README, TUTORIAL, CHANGELOG, DECISIONS, and
+  DATA_SOURCES is replaced with a spend-only record or a
+  removal note. The git history of the earlier versions still
+  holds the old scores; nothing is pretended away.
+- The scored-corpus floor test in tests/test_store.py is
+  removed and replaced with a deterministic store floor test on
+  three small local fixtures, with dedup proven by re-triaging
+  identical code and check. No score is computed, no corpus
+  file is read.
+
+### Changed
+
+- Triage prompt history notes in prompts.py, the redaction
+  note in server.py, and the rule-mapping comment in
+  scanners.py no longer cite a scored corpus as their test
+  evidence; the behaviour itself is unchanged. The 12 real
+  Live Triage examples stay, reworded from corpus ids to
+  example numbers, they are examples, not a score.
+
+### Tests, v0.5.7 pass
+
+- Full unit suite: 315 passed, 0 failed, locally (65.45s) and
+  on bug-bounty (47.86s). Same count as v0.5.6: 1 test replaced
+  with 1 test.
+- Scanner-verbatim re-audit at $0, report workspace-only
+  AUDIT-2026-11-11-v057.md: 135 candidates reviewed, 0
+  confirmed, clean.
+- Live re-test, Muse MCP stdio, gemini-3.5-flash-lite, real
+  local fixtures only: 15 tools, triage SQLi real high 1.0,
+  triage parameterised FP false_positive low 1.0, verify
+  supplied PoC reproduced confirmed True. Pass total
+  $0.0009158 of the $0.50 cap. See DECISIONS.md section 29
+  and SPEND.md v0.5.7.
+
 ## [0.5.6] - 2026-11-11
 
 ### Fixed
@@ -279,20 +324,18 @@ section.
 
 ### Live results, v0.5.2 fix pass
 
-- Dataset-50 live: 47/50, accuracy 0.940, precision 1.000,
-  recall 0.880, 0 unparsed, $0.0151149. Failures are the
-  same three as v0.5.1: S10, S11, S24, all real triaged
-  false_positive. The presence clause did not move Gemini
-  3.5 Flash Lite on these three, and broke nothing: all 25
-  false positives still pass, including F10, F11, F17, F24,
-  and F25. Recorded honestly in DECISIONS.md section 23:
+- Live run, v0.5.2 fix pass: one live run on real local
+  fixtures, $0.0151149. The presence clause did not move
+  Gemini 3.5 Flash Lite on redacted hardcoded-secret
+  examples, and broke nothing: all false positives still
+  pass. Recorded honestly in DECISIONS.md section 23:
   the remaining gap is model judgement on redacted values,
   not a prompt wording gap that a further tweak can fix
   without risking the false positives. No live repo_scan
   re-run was made for the prompt clause: one live run per
-  fix, and the dataset run was the prompt fix's run.
-- MockLLM floors, $0.00: dataset-50 51/51, dataset-v2
-  57/57, host-key triaged real.
+  fix, and the fixture run was the prompt fix's run.
+- Deterministic fixed-response stub floors, $0.00:
+  host-key triaged real.
 - Models re-checked live 2026-11-10: 73 models, 73 unique,
   no removals, no additions, pricing unchanged, Ripple
   still the only unpriced model.
@@ -333,12 +376,9 @@ section.
 
 ### Live results, v0.5.1 fix pass
 
-- Dataset-50 live: 47/50, accuracy 0.940, precision 1.000,
-  recall 0.880, 0 unparsed, $0.0136399. Failures S10, S11,
-  S24, all real triaged false_positive.
-- Dataset-v2 live, first scored run: 53/56, accuracy
-  0.946, precision 1.000, recall 0.893, 0 unparsed,
-  $0.015404. Same three failures; all 6 new v2 items pass.
+- Live run, v0.5.1 fix pass: one live run on real local
+  fixtures, $0.0136399, plus a scored-corpus run, $0.015404,
+  whose score was removed in v0.5.7 and is not claimed.
 - Repo_scan on ssh-mcp-server: 14 findings, 1 real
   (host-key), 13 false_positive, $0.005954.
 - Muse agent-side test, all 15 tools over MCP stdio:
@@ -373,7 +413,7 @@ section.
   `--allow-apply` double gate for file-writing tool calls.
   Engagement profiles standard (5 rps) and conservative
   (1 rps) with full jitter.
-- `rules/README.md` with per-rule precision measured on the
+- `rules/README.md` with per-rule hit counts measured on the
   test repos.
 
 ### Changed
@@ -431,9 +471,8 @@ section.
 
 - Phase A1: 5 oracle PoC generations, 3 of 5 reproduced on
   the first run, 0 unparsed, $0.004749.
-- Phase A2: 12 examples 8/12, 50-finding dataset 48/50,
-  accuracy 0.960, precision 1.000, recall 0.920, 0 unparsed,
-  $0.0153807. The store did not change triage accuracy.
+- Phase A2: 12 examples 8/12, $0.0153807. The store did
+  not change triage behaviour on the examples.
 - Phase A3: repo_scan on classfang/ssh-mcp-server with the
   custom pack, 14 findings triaged, 0 real, 13 false
   positive, 1 no verdict, $0.005798. The custom rule found
@@ -470,8 +509,8 @@ section.
 ### Live results, v0.4.0
 
 - 12 examples: Phase 6 run 8 of 12, 0 unparsed, $0.003546.
-- 50-finding dataset: 48 of 50, accuracy 0.960, precision
-  1.000, recall 0.920, 0 unparsed, $0.0117599.
+- Scored-corpus run: spend $0.0117599, score removed in
+  v0.5.7 and not claimed.
 - Total v0.4.0 live $0.0506687 of the $5.00 budget.
 - 121 unit tests pass.
 - Claude Code 2.1.322 and Codex 0.164.0 tested for

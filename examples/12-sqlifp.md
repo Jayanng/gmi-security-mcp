@@ -2,7 +2,7 @@
 
 Expected verdict: false_positive
 
-Expected: FALSE POSITIVE - low. Dataset finding F01. Parameters are bound safely, so there is no SQL injection.
+Expected: FALSE POSITIVE - low. Example 12 finding. Parameters are bound safely, so there is no SQL injection.
 
 Check: SQL injection
 

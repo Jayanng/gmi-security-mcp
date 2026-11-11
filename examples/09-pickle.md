@@ -2,12 +2,12 @@
 
 Expected verdict: real
 
-Expected: REAL - critical. Insecure deserialization, CWE-502, dataset finding S14. Fix: use json.loads, or signed / allowlisted data only.
+Expected: REAL - critical. Insecure deserialization, CWE-502, example 9 finding. Fix: use json.loads, or signed / allowlisted data only.
 
 Check: none, no clean mapping onto the 7 known checks
 
 ```
-Semgrep finding, dataset S14, insecure deserialization, CWE-502.
+Semgrep finding, example 9, insecure deserialization, CWE-502.
 Code in app.py:
 
 import pickle

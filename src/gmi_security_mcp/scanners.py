@@ -56,7 +56,7 @@ EXCLUDED_DIR_NAMES = {
 }
 
 # Explicit rule id to known-check mapping, from rules observed on
-# the real test repos plus the dataset categories in the plan.
+# the real test repos plus the known check categories.
 RULE_CHECK_MAP = {
     "html.security.audit.missing-integrity.missing-integrity": "other",
     "javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal": "Path traversal",

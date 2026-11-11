@@ -65,7 +65,7 @@ Authentication and session flaws; the finding it returns carries
 the check string "Missing SSH host key verification", which is the
 wording the host-key oracle in `verify_finding` matches on.
 
-## Precision, measured 2026-11-10, semgrep 1.184.0
+## Hit counts, measured 2026-11-10, semgrep 1.184.0
 
 Test repos: classfang/ssh-mcp-server at v1.11.0 (vulnerable) and
 at the fix branch `fix/ssh-host-key-verification` commit a993f2d

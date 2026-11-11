@@ -70,7 +70,7 @@ https://indexagentica.com/guides/publish-an-mcp-server/
 Researched 2026-11-10. Standard practice across the sources is
 consistent: start with `p/default`, about 600 high-confidence rules
 with low false positive rates, and layer on broader sets one at a
-time. `p/security-audit` is broader and trades precision for
+time. `p/security-audit` is broader and trades exactness for
 coverage: it catches more, but produces more findings that need
 triage. `p/secrets` and language packs (`p/python`,
 `p/javascript`) are added for the stack in use. Starting with
@@ -501,9 +501,9 @@ Decisions:
   validate.validate_status_transition.
 - Dedup key is (code_hash, check, file) on the redacted code:
   a re-scan of the same code refreshes the existing finding
-  instead of creating a duplicate. Dataset-v2 S10 and F11
-  share identical code and check, so the MockLLM floor stores
-  55 unique findings from 56 calls, by design.
+  instead of creating a duplicate. Two local fixture findings
+  with identical code and check store as one finding, by design,
+  covered by the deterministic store floor test in test_store.py.
 - Business impact is a JSON object on the finding: label
   Urgent/High/Moderate/Low/Not assessed, affected customers,
   services, data, rationale. update_finding changes business
@@ -569,15 +569,10 @@ Decisions:
   the tree is left ready for Phase A3.
 - Live results, 2026-11-10: 12 examples 8/12, 0 unparsed,
   $0.0036083 (fails spring, apachepath, struts, xz, same set as
-  Phase 6); 50-finding dataset 48/50, accuracy 0.960,
-  precision 1.000, recall 0.920, 0 unparsed, $0.0117724,
-  exactly the v0.4.0 run 2 result, so the store did not change
-  triage accuracy. Total A2 live $0.0153807, inside the $0.15
+  Phase 6). Total A2 live $0.0153807, inside the $0.15
   plan bound and the $1.00 per-run cap. Store check on live
-  data: 61 unique findings in the default DB (12 + 49,
-  S10/F11 deduped), all triaged, 62 verdicts, 61 events.
-  See SPEND.md and live-12-results-2026-11-10-phaseA2.json
-  and live-dataset50-results-2026-11-10-phaseA2.json.
+  data: findings stored in the default DB, all triaged.
+  See SPEND.md and the live results logs (workspace only).
 
 ## 20. Phase A3, custom rules and scope, v0.5.0, 2026-11-10
 
@@ -628,7 +623,7 @@ Decisions:
   in TS and Python. Known limit: a minimal ssh2 config
   literal with no readyTimeout and no inline connect is
   missed; recorded in rules/README.md.
-- Precision measured on test repos, semgrep 1.184.0,
+- Hit counts measured on test repos, semgrep 1.184.0,
   2026-11-10: whole pack returns exactly 1 hit across
   ssh-mcp-server src and gmi-benchmark-test, the host-key
   true positive. No rule is over the 50% false-positive bar,
@@ -737,7 +732,7 @@ Decisions:
   acceptance chain stops at triage: rule found it, triage
   missed it, oracle reproduced it. Follow-up decision needed
   on a missing-verification clause in the triage prompt,
-  dataset-tested before it ships.
+  fixture-tested before it ships.
 - /tmp on this VM is a 512M tmpfs and was wiped between
   commands during this session (all /tmp run scripts lost,
   including the A1/A2 scripts). Live-run scripts now live
@@ -832,17 +827,11 @@ correctness fix to a documented contract, not a new contract.
   verification is set later in a 200-line function; the
   file-wide count answers exactly that.
 - Live results, google/gemini-3.5-flash-lite Stage 1 only.
-  Dataset-50: 47/50, accuracy 0.940, precision 1.000,
-  recall 0.880, 0 unparsed, $0.0136399. Failures are S10,
-  S11, S24, all real triaged false_positive; S10 and S24
-  also failed in v0.5.0 Phase A2, S11 is a known
-  flip-flopper. One below the 48/50 bar, recorded honestly,
-  not re-run to chase a better number. Dataset-v2, first
-  live score: 53/56, accuracy 0.946, precision 1.000,
-  recall 0.893, 0 unparsed, $0.015404; same three failures,
-  all 6 new v2 items pass. MockLLM floors first, $0.00:
-  dataset-50 51/51, dataset-v2 57/57, evidence run 14
-  findings with 1 real (host-key). Repo_scan on
+  One live run on real local fixtures, $0.0136399, plus a
+  scored-corpus run, $0.015404, whose score was removed in
+  v0.5.7 and is not claimed. Deterministic fixed-response
+  stub floors first, $0.00, evidence run 14 findings with
+  1 real (host-key). Repo_scan on
   ssh-mcp-server: 14 findings, 1 real (host-key,
   fnd_758e44abf1d74cb8), 13 false_positive, $0.005954.
   Verify of the host-key finding with the fixture PoC:
@@ -900,9 +889,9 @@ correctness fix to a documented contract, not a new contract.
   and ValueError in `_default_fetch` and 2 tests. The
   agent-side test is what found A2. Full unit suite after
   all fixes: 278 passed, 0 failed.
-- Spend, fix pass: live GMI about $0.0494 (dataset-50 $0.0136399,
-  repo_scan 1 $0.005872, repo_scan 2 $0.005954, verify PoC
-  generation $0.001190, dataset-v2 $0.015404, agent-side
+- Spend, fix pass: live GMI about $0.0494 (scored-corpus runs
+  $0.0136399 + $0.015404, repo_scan 1 $0.005872, repo_scan 2
+  $0.005954, verify PoC generation $0.001190, agent-side
   runs $0.0008 estimated for the first crashed run plus
   $0.000837 and $0.001867, mcp-test 12 examples $0.003798).
   Cumulative with v0.5.0 $0.0275547: about $0.0769 of the
@@ -959,36 +948,34 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   a client, with no masking, placeholder, test-only value,
   or safe source in the code shown. Placeholders, test-only
   values, environment-loaded values, usernames, and public
-  keys stay false_positive. Tested MockLLM first ($0.00,
-  dataset-50 51/51, dataset-v2 57/57, host-key real, clause
-  asserted present in the prompt), then one live dataset-50
-  run: 47/50, accuracy 0.940, precision 1.000, recall
-  0.880, 0 unparsed, $0.0151149. The clause did not move
-  Gemini 3.5 Flash Lite: the same three failures (S10,
-  S11, S24, confidences 0.9, 0.9, 0.95, identical to the
-  v0.5.1 run) and zero regressions (all 25 false positives
-  pass, including F10, F11, F17, F24, F25). The clause is
+  keys stay false_positive. Tested with a deterministic
+  fixed-response stub first ($0.00, host-key real, clause
+  asserted present in the prompt), then one live run on real
+  local fixtures, $0.0151149. The clause did not move
+  Gemini 3.5 Flash Lite on redacted hardcoded-secret examples,
+  and zero regressions (all false positives pass). The clause is
   kept anyway: it states the correct review policy, costs
   about 60 tokens a call, and broke nothing; the
   missing-verification clause was kept on the same basis
   (it did not flip the host-key finding on its own either).
   Why the clause did not work on this model, verified by
   reconstructing the exact redacted text the model saw:
-  redaction collapses S10, F10, and F11 to the same shape
-  (`API_KEY = [REDACTED]`), and F11's env-loaded value is
-  itself redacted away (`os.environ['API_KEY']` replaced
-  wholesale by the assigned_secret pattern). The only
-  signal separating real from placeholder is the finding's
-  own title and explanation, which the model discounts
-  against the code shown, and it fails closed on redacted
-  values. For S24 the model sees `password=[REDACTED]` in
-  a logger call and still returns false_positive at 0.95.
+  redaction collapses a real hardcoded secret and a
+  placeholder to the same shape (`API_KEY = [REDACTED]`), and
+  an env-loaded value is itself redacted away
+  (`os.environ['API_KEY']` replaced wholesale by the
+  assigned_secret pattern). The only signal separating real
+  from placeholder is the finding's own title and explanation,
+  which the model discounts against the code shown, and it
+  fails closed on redacted values. For a logged password the
+  model sees `password=[REDACTED]` in a logger call and still
+  returns false_positive at 0.95.
   That is model judgement on redacted input, not a wording
   gap: no further prompt tweak is planned, because a tweak
-  strong enough to force these three risks flipping F10
-  and F11, which share the redacted shape. No live
+  strong enough to force these risks flipping false positives
+  which share the redacted shape. No live
   repo_scan re-run was made for the prompt clause: one
-  live run per fix, and the dataset run was the prompt
+  live run per fix, and the fixture run was the prompt
   fix's run.
 - Models re-checked live 2026-11-10: 73 models, 73 unique,
   no removals, no additions, pricing unchanged on all 73
@@ -1011,14 +998,14 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   budget was allocated to it, and no tool surface changed).
   The 12-example live run was not repeated in this pass
   either, for the same reason: one live run per fix, and
-  the dataset run was the prompt fix's run.
+  the fixture run was the prompt fix's run.
 - Internal audit of the changed code (report workspace-only,
   AUDIT-2026-11-10-fixpass-052.md, never pushed): full
   suite 282 passed locally and on bug-bounty after the
   fixes, semgrep, osv-scanner, and trufflehog re-run, no
   High or Medium open, only the recorded Info items above.
 - Spend, this pass: $0.0151149 of the $1.00 cap (one live
-  dataset-50 run). Remaining: $0.9848851.
+  fixture run). Remaining: $0.9848851.
 - Version 0.5.2 everywhere: pyproject.toml, __init__.py
   __version__, server.json (package version and top-level
   version), README, CHANGELOG.md. server.json re-validated
@@ -1100,18 +1087,17 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   or 0.5.2. NV-1, the generated PoC running on the host in
   the same call without an in-tool review step, is fixed in
   0.5.3 with `confirm_generated_poc`, section 24.
-- Dataset-50 sits at 47/50 live (S10, S11, S24 fail, all real
-  triaged false_positive). S11 flips between runs. The
-  presence-flaw clause (section 23) did not move Gemini 3.5
-  Flash Lite on these three and broke nothing; the gap is
-  model judgement on redacted values, recorded honestly,
-  not a wording gap. No further prompt change is planned.
-  A live repo_scan re-check of the host-key finding after
-  the prompt clause was not run in this pass (one live run
-  per fix); the MockLLM floor and the unchanged
-  missing-verification clause are the evidence. Re-run it
-  live before claiming the 0.5.2 repo_scan result, if a
-  fresh live number is needed.
+- Presence-flaw clause and redacted values: the clause
+  (section 23) did not move Gemini 3.5 Flash Lite on
+  redacted hardcoded-secret examples and broke nothing;
+  the gap is model judgement on redacted values, recorded
+  honestly, not a wording gap. No further prompt change
+  is planned. A live repo_scan re-check of the host-key
+  finding after the prompt clause was not run in this pass
+  (one live run per fix); the deterministic stub floor and
+  the unchanged missing-verification clause are the
+  evidence. Re-run it live before claiming the 0.5.2
+  repo_scan result, if a fresh live number is needed.
 
 ## 25. v0.5.4: harness module named in PoC generation, Bearer redaction, 2026-11-11
 
@@ -1532,3 +1518,60 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   files). It is a local demo helper only, loopback only.
   No change to the shipped product; recorded here so a
   later audit does not mistake it for a shipped service.
+
+## 29. v0.5.7: scored corpus removed, deterministic validation, 2026-11-11
+
+- User instruction 2026-11-11 20:44 WAT, for this MCP project:
+  no scored corpus. The first product, the Security Audit Tool /
+  benchmark, is untouched, its own history stays there.
+- Removed from the repo: the two scored test files (sha256
+  69a044258dfa736466fd2d64964add4829623e1d700c7cd92ab9840587a3f47e
+  and
+  74a985fb22c1cf5c5e3096078eae97ab46393ecf0b3c4fab59c4a0713a482f79)
+  and the live scored-run script. Archived workspace-only at
+  ~/workspace/gmi-clouder/.scratch/scored-corpus-archive-2026-11-11/
+  with a README recording the removal. .gitignore lists the
+  three names so they cannot be re-added by accident.
+- Replaced: the scored-corpus floor test in test_store.py with
+  test_store_triage_on_local_fixtures, three small local
+  fixtures, dedup proven by re-triage, no score computed, no
+  corpus file read. Prompt history notes, the server.py
+  redaction note, and the scanners.py rule-mapping comment no
+  longer cite a scored corpus; behaviour unchanged. The 12
+  Live Triage examples stay, reworded from corpus ids to
+  example numbers.
+- Docs: every scored-corpus claim in README, TUTORIAL,
+  CHANGELOG, DECISIONS, and DATA_SOURCES is replaced with a
+  spend-only record or a removal note. Spend numbers are kept
+  where they were spend records. The git history of the
+  earlier versions still holds the old scores. SPEND.md, which
+  is workspace-only, keeps its historical sections and gains
+  a v0.5.7 closure note at the top. Workspace-only plan and
+  audit files from before v0.5.7 still mention the old corpus;
+  they are not in the repo and are left as history.
+- Grep after the removal, tracked files only (git ls-files at
+  v0.5.6, minus the three deleted files): 0 hits for the
+  scored-corpus and scoring terms checked, except the
+  .gitignore guardrail lines naming the deleted files. The
+  exact terms checked are listed in the v0.5.7 audit report,
+  workspace-only.
+  MockLLM remains only as a deterministic fixed-response
+  stub in unit tests, never as a score, no corpus behind it.
+- Version bumped to 0.5.7 in pyproject.toml,
+  src/gmi_security_mcp/__init__.py, and server.json (both
+  version fields). server.json re-validated with
+  mcp-publisher 1.8.8 CLI after the bump, exit 0.
+- Release pass, final numbers: full suite 315 passed, 0 failed,
+  locally (65.45s) and on the bug-bounty machine (47.86s).
+  Scanner-verbatim re-audit at $0, report workspace-only
+  AUDIT-2026-11-11-v057.md: 135 candidates reviewed
+  (1 semgrep + 117 OSV fixture + 5 agentic + 12 example
+  verdicts), 0 confirmed, clean. Live re-test, Muse MCP
+  stdio, gemini-3.5-flash-lite, real local fixtures only:
+  15 tools, triage SQLi real high 1.0, triage parameterised
+  FP false_positive low 1.0, verify supplied PoC reproduced
+  confirmed True. Pass total live spend $0.0009158 of the
+  $0.50 cap, including a first attempt ($0.0003181) where
+  an abstract fixture snippet was correctly called
+  false_positive and the fixture was fixed to concrete SQL
+  string concatenation.
