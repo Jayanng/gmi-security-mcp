@@ -93,6 +93,69 @@ HARNESS_MODULES = {
     "host_key": "hostkey_harness",
 }
 
+# Harness functions and a minimal usage snippet per oracle
+# category, v0.5.5. The v0.5.4 fix named the harness module but
+# not the functions inside it, so a live Gemini generation
+# invented ssrf_harness.fetch(url), which does not exist, and
+# built its own http.server collector instead of using the
+# harness Collector, and the SSRF oracle could not reproduce
+# (2/2 Gemini generations not_reproduced in the Hermes 15-tool
+# test). Every name and every snippet line below is taken from
+# the real harness file in tests/fixtures/verify_harness/ and
+# from the deterministic fixture PoC for the category. Nothing
+# here is invented: the fixed-form functions (safe_query,
+# render_page_safe, safe_read, connect_strict) are deliberately
+# NOT listed, because a PoC that calls the fixed form cannot
+# reproduce. The prompt gives only this whitelist, so the model
+# has no fixed-form name to reach for by mistake.
+HARNESS_USAGE = {
+    "sqli": (
+        "Functions: make_db(), vulnerable_query(conn, user_input).\n"
+        "Use them exactly like this:\n"
+        "conn = sqli_harness.make_db()\n"
+        "rows = sqli_harness.vulnerable_query(conn, \"1 AND 1=1\")"
+    ),
+    "xss": (
+        "Functions: render_page(query).\n"
+        "Use it exactly like this:\n"
+        "page = xss_harness.render_page(payload)"
+    ),
+    "ssrf": (
+        "Functions: Collector(), vulnerable_fetch(url). Collector "
+        "is a context manager with .url and .seen_paths.\n"
+        "Use them exactly like this:\n"
+        "with ssrf_harness.Collector() as collector:\n"
+        "    ssrf_harness.vulnerable_fetch(collector.url + "
+        "\"?nonce=\" + nonce)"
+    ),
+    "path_traversal": (
+        "Functions: vulnerable_read(base_dir, user_path).\n"
+        "Use it exactly like this:\n"
+        "content = traversal_harness.vulnerable_read(os.getcwd(), "
+        "\"../../../../../../../../etc/passwd\")"
+    ),
+    "host_key": (
+        "Functions: start_test_server(), "
+        "connect_no_verify(port). start_test_server() returns "
+        "(port, host_key, stop_fn).\n"
+        "Use them exactly like this:\n"
+        "port, server_key, stop = "
+        "hostkey_harness.start_test_server()\n"
+        "connected, seen_fp = "
+        "hostkey_harness.connect_no_verify(port)"
+    ),
+}
+
+
+def harness_usage(category):
+    """Usage snippet for a category, or "" when there is none.
+
+    The text is fixed per category, taken from the real harness
+    source, never built from model output or caller input.
+    """
+    return HARNESS_USAGE.get(category, "")
+
+
 
 def infer_harness_module(code=None, repo_path=None, category=None,
                          explicit=None):
@@ -509,12 +572,14 @@ def evidence_contract(category):
             'not confirmation.'
         ),
         "ssrf": (
-            'Generate a unique nonce, start a temporary local HTTP '
-            'collector on 127.0.0.1, make the vulnerable code fetch '
-            'a URL pointing at the collector with the nonce, and '
-            'print as the last line a JSON object like {"nonce": '
-            '"<nonce>", "collector_received_nonce": "<nonce seen by '
-            'the collector>"}. The two nonces must match.'
+            'Generate a unique nonce, use the harness Collector '
+            'and vulnerable_fetch given in the finding to make the '
+            'vulnerable code fetch the collector URL with the '
+            'nonce, and print as the last line a JSON object like '
+            '{"nonce": "<nonce>", "collector_received_nonce": '
+            '"<nonce seen by the collector>"}. The two nonces must '
+            'match. Do not build your own HTTP collector: use the '
+            'harness Collector.'
         ),
         "path_traversal": (
             'Request the target file through the vulnerable path '
@@ -635,16 +700,39 @@ def _scrubbed_env():
     Drops every variable whose name looks like a key, token,
     secret, password, or credential, including GMI_API_KEY, so a
     PoC can never read a credential from its environment.
+
+    Also forces loopback past any proxy. PoCs may only talk to
+    127.0.0.1 (local collectors), but a host that sets HTTP_PROXY
+    without NO_PROXY makes urllib route the collector fetch
+    through the egress proxy, which drops it: the Hermes MCP
+    spawn sets the proxy vars and not NO_PROXY, so a correct
+    generated SSRF PoC exited 1 with no evidence, 3/3 Qwen
+    attempts in the v0.5.5 live test, while the same PoC
+    reproduced from a shell that had NO_PROXY set. Merging
+    127.0.0.1 and localhost into NO_PROXY and no_proxy, keeping
+    any existing entries, fixes the child without touching the
+    proxy itself.
     """
     scrub_re = re.compile(
         r"key|token|secret|password|passwd|credential|bearer|session|cookie",
         re.I,
     )
-    return {
+    env = {
         key: value
         for key, value in os.environ.items()
         if not scrub_re.search(key)
     }
+    for name in ("NO_PROXY", "no_proxy"):
+        parts = [
+            part.strip()
+            for part in str(env.get(name, "")).split(",")
+            if part.strip()
+        ]
+        for host in ("127.0.0.1", "localhost"):
+            if host not in parts:
+                parts.append(host)
+        env[name] = ",".join(parts)
+    return env
 
 
 def run_poc(command, repo_path, timeout=POC_TIMEOUT_SECONDS,

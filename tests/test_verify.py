@@ -567,6 +567,74 @@ def test_poc_env_scrubs_credentials(tmp_path):
     assert "None" in result["output"]
 
 
+def test_poc_env_forces_loopback_past_proxy(monkeypatch):
+    monkeypatch.setenv("http_proxy", "http://proxy.invalid:3128")
+    monkeypatch.setenv("https_proxy", "http://proxy.invalid:3128")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    env = verify_mod._scrubbed_env()
+    for name in ("NO_PROXY", "no_proxy"):
+        parts = [p.strip() for p in env[name].split(",") if p.strip()]
+        assert "127.0.0.1" in parts
+        assert "localhost" in parts
+    assert env["http_proxy"] == "http://proxy.invalid:3128"
+
+
+def test_poc_env_keeps_existing_no_proxy_entries(monkeypatch):
+    monkeypatch.setenv("NO_PROXY", "example.com, 127.0.0.1")
+    monkeypatch.delenv("no_proxy", raising=False)
+    env = verify_mod._scrubbed_env()
+    parts = [p.strip() for p in env["NO_PROXY"].split(",") if p.strip()]
+    assert parts.count("127.0.0.1") == 1
+    assert "example.com" in parts
+    assert "localhost" in parts
+
+
+def test_poc_ssrf_reproduces_with_proxy_and_no_no_proxy(
+    tmp_path, monkeypatch
+):
+    """Regression: v0.5.5 Hermes live test, 3/3 Qwen attempts.
+
+    The generated SSRF PoC was correct and reproduced from a
+    shell with NO_PROXY set, but under the Hermes MCP spawn
+    (proxy vars set, NO_PROXY absent) urllib routed the
+    collector fetch through the egress proxy and the PoC exited
+    1 with no evidence. The runner must force loopback past
+    the proxy for the PoC child.
+    """
+    repo = _repo(tmp_path)
+    monkeypatch.setenv("http_proxy", "http://proxy.invalid:3128")
+    monkeypatch.setenv("https_proxy", "http://proxy.invalid:3128")
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+    poc = (
+        "import json\nimport uuid\nimport ssrf_harness\n"
+        "nonce = uuid.uuid4().hex[:16]\n"
+        "with ssrf_harness.Collector() as collector:\n"
+        "    ssrf_harness.vulnerable_fetch("
+        "collector.url + \"?nonce=\" + nonce)\n"
+        "    received = \"\"\n"
+        "    for path in collector.seen_paths:\n"
+        "        if nonce in path:\n"
+        "            received = nonce\n"
+        "            break\n"
+        "print(json.dumps({\"nonce\": nonce, "
+        "\"collector_received_nonce\": received}))\n"
+    )
+    poc_path = verify_mod.write_poc_file(poc, repo)
+    try:
+        result = verify_mod.run_poc([sys.executable, str(poc_path)], repo)
+    finally:
+        poc_path.unlink(missing_ok=True)
+    assert result["ran"] is True
+    assert result["exit_code"] == 0, result["output"]
+    evidence = json.loads(result["output"].strip().splitlines()[-1])
+    assert evidence["nonce"] == evidence["collector_received_nonce"]
+    assert evidence["nonce"] != ""
+
+
 def test_parse_poc_generation_valid():
     content = 'prefix {"poc": "print(1)", "language": "python"} suffix'
     parsed = verify_mod.parse_poc_generation(content)
@@ -1259,3 +1327,204 @@ def test_verify_generation_prompt_no_fstring_braces():
 
     assert "f-string" in prompts_mod.POC_PROMPT
     assert "plain string concatenation" in prompts_mod.POC_PROMPT
+
+
+# v0.5.5: the generation prompt names the harness functions, not
+# just the module. Regression test for the Hermes 15-tool test:
+# 2/2 Gemini SSRF generations invented ssrf_harness.fetch(url),
+# which does not exist, and built their own http.server
+# collector instead of using the harness Collector, so the
+# oracle could not reproduce. The table below is the contract:
+# the function names the prompt gives for each category, the
+# harness file they must exist in, and the invented or
+# fixed-form names the prompt must never offer.
+_HARNESS_FUNCTION_CONTRACT = {
+    "sqli": ("sqli_harness.py", ("make_db", "vulnerable_query")),
+    "xss": ("xss_harness.py", ("render_page",)),
+    "ssrf": ("ssrf_harness.py", ("Collector", "vulnerable_fetch")),
+    "path_traversal": (
+        "traversal_harness.py",
+        ("vulnerable_read",),
+    ),
+    "host_key": (
+        "hostkey_harness.py",
+        ("start_test_server", "connect_no_verify"),
+    ),
+}
+
+# Names the prompt must never contain: invented functions and
+# the fixed-form functions, which a PoC calling them cannot
+# reproduce with.
+_FORBIDDEN_HARNESS_NAMES = (
+    "ssrf_harness.fetch(",
+    "harness.fetch(",
+    "safe_query",
+    "render_page_safe",
+    "safe_read",
+    "connect_strict",
+)
+
+
+def _capture_generation_prompt(category, tmp_path):
+    """Run verify_impl generation with a capturing MockLLM.
+
+    Returns (result, system_prompt, user_prompt). The PoC is
+    never run: run_poc False, so this is a prompt-content test
+    with no oracle run and no live call.
+    """
+    repo = _repo(tmp_path)
+    seen = {}
+
+    def _capture(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        seen["system"] = system_content
+        return _mockllm_chat(_poc_text(category))(
+            model, system_content, user_content, max_tokens
+        )
+
+    result = srv.verify_impl(
+        finding=_finding(category),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=False,
+        chat_fn=_capture,
+        pricing=PRICING,
+    )
+    return result, seen.get("system", ""), seen.get("user", "")
+
+
+def test_harness_usage_names_exist_in_real_harness():
+    """v0.5.5: every function in HARNESS_USAGE exists in the
+    real harness file. Guards the prompt against inventing a
+    function in a future edit: the names are checked against
+    the harness source, not against each other."""
+    import re as _re
+
+    for category, (harness_file, names) in (
+        _HARNESS_FUNCTION_CONTRACT.items()
+    ):
+        source = (FIXTURES / harness_file).read_text()
+        usage = verify_mod.harness_usage(category)
+        assert usage, category
+        for name in names:
+            assert _re.search(
+                r"^(class|def) %s\b" % _re.escape(name), source, _re.M
+            ), (category, name)
+            assert name in usage, (category, name)
+        for forbidden in _FORBIDDEN_HARNESS_NAMES:
+            assert forbidden not in usage, (category, forbidden)
+    assert verify_mod.harness_usage("no_such_category") == ""
+    assert verify_mod.harness_usage(None) == ""
+
+
+@pytest.mark.parametrize(
+    "category", list(_HARNESS_FUNCTION_CONTRACT)
+)
+def test_verify_generation_prompt_names_harness_functions(
+    category, tmp_path
+):
+    """v0.5.5: the generation prompt names the harness
+    functions and a usage snippet for every oracle category,
+    and offers no invented or fixed-form name."""
+    _harness_file, names = _HARNESS_FUNCTION_CONTRACT[category]
+    result, system, user = _capture_generation_prompt(category, tmp_path)
+    assert result["status"] == "skipped", result
+    for name in names:
+        assert name in user, (category, name)
+    assert "Harness functions, use only these exact names:" in user
+    assert "Do not invent, shorten, or rename a function" in user
+    assert "do not build your own" in user.lower()
+    for forbidden in _FORBIDDEN_HARNESS_NAMES:
+        assert forbidden not in user, (category, forbidden)
+        assert forbidden not in system, (category, forbidden)
+    assert "ssrf_harness.fetch" not in system
+
+
+def test_verify_generation_prompt_ssrf_snippet_is_collector_usage(
+    tmp_path,
+):
+    """v0.5.5: the SSRF prompt shows the Collector context with
+    collector.url + "?nonce=" + nonce, the exact shape the
+    oracle needs. A PoC that fetches any other URL cannot
+    reproduce."""
+    _result, _system, user = _capture_generation_prompt("ssrf", tmp_path)
+    assert "with ssrf_harness.Collector() as collector:" in user
+    assert "vulnerable_fetch(collector.url + " in user
+    assert '"?nonce=" + nonce' in user
+    assert "http.server" not in user
+    assert "HTTPServer" not in user
+
+
+def test_verify_generation_prompt_no_harness_no_functions(tmp_path):
+    """v0.5.5: when no harness module is found, the prompt
+    offers no function names either."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    seen = {}
+
+    def _capture(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        return _mockllm_chat(_poc_text("ssrf"))(
+            model, system_content, user_content, max_tokens
+        )
+
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=False,
+        chat_fn=_capture,
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped", result
+    assert "No harness module name is given" in seen["user"]
+    assert "Harness functions, use only these exact names:" not in seen[
+        "user"
+    ]
+
+
+def test_mockllm_generated_ssrf_poc_uses_harness_functions(tmp_path):
+    """v0.5.5: a PoC generated per the prompt, the deterministic
+    fixture PoC for SSRF, imports ssrf_harness exactly, calls
+    Collector() and vulnerable_fetch(collector.url + nonce),
+    invents no fetch(), builds no own collector, and
+    reproduces through the oracle when run with confirmation."""
+    poc = _poc_text("ssrf")
+    assert "import ssrf_harness" in poc
+    assert "ssrf_harness.Collector()" in poc
+    assert "vulnerable_fetch(collector.url + " in poc
+    assert "ssrf_harness.fetch(" not in poc
+    assert "http.server" not in poc
+    assert "HTTPServer" not in poc
+    repo = _repo(tmp_path)
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        confirm_generated_poc=True,
+        chat_fn=_mockllm_chat(poc),
+        pricing=PRICING,
+    )
+    assert result["status"] == "reproduced", result
+    assert result["confirmed"] is True
+
+
+def test_mockllm_generated_poc_all_categories_use_harness_functions(
+    tmp_path,
+):
+    """v0.5.5: the same check for every category: the fixture
+    PoC uses only the contracted harness functions, and the
+    invented fetch() shape is absent everywhere."""
+    import re as _re
+
+    for category, (_harness_file, names) in (
+        _HARNESS_FUNCTION_CONTRACT.items()
+    ):
+        poc = _poc_text(category)
+        for name in names:
+            assert name in poc, (category, name)
+        assert "harness.fetch(" not in poc, category
+        assert _re.search(r"\bfetch\(", poc) is None or (
+            "vulnerable_fetch(" in poc
+        ), category

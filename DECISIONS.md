@@ -1160,3 +1160,131 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   direct OSV query each audit, clean.
 - .gitignore gap from the v0.5.3 live test: adds live-*.json,
   live-*.md, X-THREAD-DRAFT-*.md. Goes out in the v0.5.4 push.
+
+## 26. v0.5.5: harness functions named in PoC generation, 2026-11-11
+
+- SSRF root cause, second half, from the Hermes 15-tool test
+  (hermes-test-2026-11-11.md addendum): the v0.5.4 fix named
+  the harness module but not the functions inside it. Gemini
+  attempt 2 generated a PoC that imported ssrf_harness
+  correctly, then called ssrf_harness.fetch(url), a function
+  that does not exist, and built its own http.server
+  collector instead of using the harness Collector context
+  with collector.url + "?nonce=" + nonce. Attempt 3, with the
+  failure detail and the exact function name fed back in the
+  finding note, did the same. Both ran exit 0 and returned
+  not_reproduced, "nonce was sent but the collector saw no
+  request". Qwen attempt 1 never generated: HTTP 524
+  Cloudflare origin timeout from the GMI inference API,
+  246.1s, $0.00. The v0.5.4 Muse live test had reproduced
+  SSRF first try ($0.000870), so generation was
+  luck-dependent by model and run, not deterministic.
+- Fix: verify.HARNESS_USAGE, one entry per oracle category,
+  function names plus a minimal usage snippet, every name
+  and snippet line taken from the real harness file in
+  tests/fixtures/verify_harness/ and the deterministic
+  fixture PoC for the category, verified by reading the
+  harness source first. sqli: make_db(), vulnerable_query(
+  conn, user_input). xss: render_page(query). ssrf:
+  Collector() context manager with .url and .seen_paths,
+  vulnerable_fetch(url), snippet is the fixture PoC shape
+  with ssrf_harness.Collector() as collector and
+  vulnerable_fetch(collector.url + "?nonce=" + nonce).
+  path_traversal: vulnerable_read(base_dir, user_path),
+  snippet is the fixture PoC path, checked character for
+  character against poc_traversal.py. host_key:
+  start_test_server() returning (port, host_key, stop_fn),
+  connect_no_verify(port). verify.harness_usage(category)
+  returns the text, "" when there is none. verify_impl
+  appends it after the module line, with "use only these
+  exact names, do not invent, shorten, or rename a
+  function, and do not build your own collector, server,
+  database, or renderer". POC_PROMPT carries the same rule
+  in generic form. The invented name is named nowhere in
+  any prompt: an early draft of POC_PROMPT gave
+  ssrf_harness.fetch as a negative example, and the new unit
+  test caught it, so the wording is generic, "a function
+  name you guess is wrong". The fixed-form functions
+  (safe_query, render_page_safe, safe_read, connect_strict)
+  are deliberately not listed anywhere in the prompt, so
+  the model has no fixed-form name to reach for. The SSRF
+  evidence contract no longer says "start a temporary local
+  HTTP collector", which invited a home-built collector;
+  it now says use the harness Collector and vulnerable_fetch.
+- Tests: 10 new, suite 292 to 302. A contract table pins the
+  function names per category and checks each one exists as
+  a def or class in the real harness file, so a future edit
+  cannot invent a function silently. Prompt capture tests
+  assert the names and snippet appear for all five
+  categories, no invented or fixed-form name appears in
+  either prompt, and no functions are offered when no module
+  is found. MockLLM tests assert the fixture PoC for SSRF
+  and for all five categories uses only the contracted
+  functions, invents no fetch(), builds no own collector,
+  and the SSRF one reproduces through the oracle with
+  confirmation.
+- Deferred, not implemented: server-side retry of PoC
+  generation with the oracle failure fed back, cap 1 retry,
+  only on not_reproduced or error from a generated PoC. It
+  does not fit cleanly: the retry would run after the oracle
+  verdict, which is after the NV-1 confirm gate has already
+  returned or run the first PoC, so a retried PoC is still
+  generated code needing review, and a second generation
+  inside the same call would either run unreviewed code or
+  return a second unreviewed PoC, plus a second spend inside
+  one call with its own cap accounting. The caller can
+  already retry by re-calling verify_finding with the oracle
+  failure in the finding note, which is what the Hermes test
+  did by hand. Recorded here as deferred, not forced.
+- .gitignore gap from the Hermes test log: adds
+  hermes-test-*.md and cursor-test-*.md. Goes out in the
+  v0.5.5 push.
+- Live re-test, first half: Muse MCP round 1 reproduced
+  first try, gemini-3.5-flash-lite, $0.0007041, PoC used
+  Collector and vulnerable_fetch, no invented fetch, no
+  own collector (live-behaviour-test-v055-2026-11-11-
+  round1.json). Hermes Qwen attempts 1-3 then all failed
+  the same way, status error, exit 1, no evidence object:
+  $0.00427853, $0.0014261, $0.00189469. The generation was
+  not the problem: attempt 2 and 3 PoCs used the harness
+  correctly, and both reproduce verbatim outside the
+  server run (attempt 2 clean reconstruction rc 0, attempt
+  3 exact poc string extracted from the log, rc 0, nonce
+  matched). Root cause was the PoC child environment, not
+  the prompt: the Hermes MCP spawn sets HTTP(S)_PROXY
+  without NO_PROXY, so urllib routed the 127.0.0.1
+  collector fetch through the egress proxy, which closed
+  the connection (RemoteDisconnected). Reproduced the
+  mechanism directly: same PoC rc 0 with NO_PROXY set,
+  rc 1 with proxy set and NO_PROXY removed. Fix:
+  verify._scrubbed_env merges 127.0.0.1 and localhost
+  into NO_PROXY and no_proxy for the PoC child, keeping
+  existing entries. 3 new unit tests, suite 302 to 305,
+  including the regression: SSRF PoC reproduces through
+  run_poc with proxy vars set and NO_PROXY absent.
+  Hermes re-test after the fix to follow, 1 Qwen attempt,
+  Gemini fallback only if Qwen still errors.
+- Live re-test, second half, after the proxy fix: Muse
+  round 2 reproduced first try in the hostile env
+  (NO_PROXY removed from the server env, proxy vars
+  present), gemini-3.5-flash-lite, $0.0006891, PoC the
+  fixture shape with Collector and vulnerable_fetch
+  (live-behaviour-test-v055-2026-11-11-round2.json).
+  Hermes Qwen attempt 4, code fixed but server stale,
+  still errored exit 1, $0.00242203: the gateway's MCP
+  server process (PID 2656, started 15:51 UTC) predated
+  the verify.py fix (15:54 UTC) and Hermes reuses it
+  across one-shot sessions, so the running server still
+  had the old _scrubbed_env. The stale server process
+  was stopped, the gateway left running, and the next
+  chat spawned a fresh server (PID 4709, 16:00 UTC).
+  Hermes Qwen attempt 5 reproduced, confirmed true,
+  exit 0, $0.00124139, nonce_matched_collector_request
+  passed. Lesson recorded: after a server code change,
+  a Hermes live test must run against a fresh MCP server
+  process, not a reused gateway one.
+- Live re-test and internal re-audit to follow in this pass,
+  $1.00 cap. Muse MCP first (cheap, gemini-3.5-flash-lite),
+  then Hermes (Qwen/Qwen3.8-Flash first, fallback Gemini),
+  generated SSRF PoC expected reproduced, stop after 3
+  attempts per model if still failing.

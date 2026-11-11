@@ -12,6 +12,35 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.5
+
+- `verify_finding` PoC generation now names the harness
+  functions and a minimal usage snippet, not just the module.
+  The v0.5.4 fix named ssrf_harness, but a live Gemini
+  generation invented ssrf_harness.fetch(url), which does not
+  exist, and built its own http.server collector instead of
+  using the harness Collector, so the oracle could not
+  reproduce, 2/2 in the Hermes 15-tool test. The prompt now
+  gives the exact function names and snippet for all five
+  oracle categories, taken from the real harness files: sqli
+  make_db and vulnerable_query, xss render_page, ssrf
+  Collector and vulnerable_fetch with collector.url +
+  "?nonce=" + nonce, path traversal vulnerable_read, host key
+  start_test_server and connect_no_verify. Use only those
+  exact names, do not invent, shorten, or rename a function,
+  and do not build your own collector, server, database, or
+  renderer. See DECISIONS.md section 26.
+- `verify_finding` PoC runs now force 127.0.0.1 and localhost
+  past any proxy. A host that sets HTTP(S)_PROXY without
+  NO_PROXY made the PoC child route the local collector
+  fetch through the egress proxy, which dropped it, so a
+  correct generated SSRF PoC exited 1 with no evidence, 3/3
+  Qwen attempts in the Hermes live test. The runner merges
+  the loopback hosts into NO_PROXY and no_proxy for the PoC
+  child, keeping any existing entries.
+- `.gitignore` now covers hermes-test-*.md and
+  cursor-test-*.md.
+
 ## What is new in 0.5.4
 
 - `verify_finding` PoC generation now names the harness module

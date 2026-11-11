@@ -2206,6 +2206,17 @@ def verify_impl(
                 "import %s\nUse only this exact module name. Do "
                 "not invent, shorten, or rename it.\n" % (harness_name, harness_name)
             )
+            usage = verify_mod.harness_usage(category)
+            if usage:
+                prompt_text += (
+                    "\nHarness functions, use only these exact "
+                    "names:\n%s\nUse only the function names "
+                    "listed above. Do not invent, shorten, or "
+                    "rename a function, and do not build your own "
+                    "collector, server, database, or renderer: "
+                    "use the harness functions above, with the "
+                    "harness context as shown.\n" % usage
+                )
         else:
             prompt_text += (
                 "\nNo harness module name is given. Do not import "

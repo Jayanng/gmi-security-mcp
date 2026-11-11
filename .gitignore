@@ -19,6 +19,8 @@ live-dataset50-results-*.json
 live-verify-*.json
 live-*.json
 live-*.md
+hermes-test-*.md
+cursor-test-*.md
 demo/
 X-THREAD-DRAFT.md
 X-THREAD-DRAFT-*.md

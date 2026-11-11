@@ -6,6 +6,92 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.5] - 2026-11-11
+
+### Fixed
+
+- SSRF PoC generation root cause, second half: the v0.5.4 fix
+  named the harness module but not the functions inside it,
+  so a live Gemini generation invented
+  ssrf_harness.fetch(url), which does not exist, and built
+  its own http.server collector instead of using the harness
+  Collector, and the oracle could not reproduce, 2/2 Gemini
+  generations in the Hermes 15-tool test. verify_impl now
+  puts the exact harness function names and a minimal usage
+  snippet into the prompt, for all five oracle categories,
+  taken from the real harness files, never invented:
+  sqli make_db and vulnerable_query, xss render_page, ssrf
+  Collector and vulnerable_fetch with collector.url +
+  "?nonce=" + nonce, path traversal vulnerable_read, host
+  key start_test_server and connect_no_verify. The prompt
+  says use only those exact names, do not invent, shorten,
+  or rename a function, and do not build your own collector,
+  server, database, or renderer. The fixed-form functions
+  (safe_query, render_page_safe, safe_read, connect_strict)
+  are deliberately not listed. The SSRF evidence contract
+  no longer tells the model to start its own collector.
+  See DECISIONS.md section 26.
+- PoC runner proxy root cause, found in the v0.5.5 live
+  re-test: the Hermes MCP spawn sets HTTP(S)_PROXY without
+  NO_PROXY, so urllib in the PoC child routed the 127.0.0.1
+  collector fetch through the egress proxy, which dropped
+  it, and a correct generated SSRF PoC exited 1 with no
+  evidence, 3/3 Qwen attempts. The same PoC reproduced from
+  a shell with NO_PROXY set, and reproduced through the
+  server's own run_poc path once the fix landed.
+  _scrubbed_env now merges 127.0.0.1 and localhost into
+  NO_PROXY and no_proxy for the PoC child, keeping any
+  existing entries. PoCs may only talk to 127.0.0.1, so
+  this only exempts loopback from proxying. See
+  DECISIONS.md section 26.
+- .gitignore now covers hermes-test-*.md and
+  cursor-test-*.md, which the v0.5.4 Hermes test log noted
+  as uncovered.
+
+### Deferred, not implemented
+
+- Server-side retry of PoC generation with the oracle
+  failure fed back, capped at 1 retry, only on
+  not_reproduced or error from a generated PoC. Deferred
+  because it complicates the NV-1 confirm gate: a retried
+  PoC is still generated code needing review, and a second
+  generation inside the same call would either run
+  unreviewed code or return a second unreviewed PoC, plus
+  a second spend inside one call. The caller can already
+  retry by re-calling verify_finding with the oracle
+  failure in the finding note. See DECISIONS.md section 26.
+
+### Tests, v0.5.5 fix pass
+
+- 305 unit tests pass, 0 failed, locally. New: 13 tests,
+  harness function names exist in the real harness source
+  for all five categories, generation prompt names the
+  functions and snippet per category, SSRF snippet shows
+  the Collector context, no harness functions offered when
+  no module is found, MockLLM generated SSRF PoC uses the
+  harness functions and reproduces, same check for all
+  five categories, plus 3 proxy tests: the PoC child env
+  forces 127.0.0.1 and localhost past the proxy, keeps
+  existing NO_PROXY entries without duplicating, and the
+  SSRF PoC reproduces through run_poc with proxy vars set
+  and NO_PROXY absent.
+- Live re-test, this pass, $1.00 cap: Muse round 1
+  reproduced first try, gemini-3.5-flash-lite, $0.0007041.
+  Hermes Qwen attempts 1 to 3 errored, exit 1, no evidence,
+  $0.00427853 + $0.0014261 + $0.00189469, which exposed the
+  PoC runner proxy defect, fixed in this version, 3 new
+  tests, suite 302 to 305. Muse round 2 after the fix
+  reproduced in the hostile env, NO_PROXY removed, proxy
+  vars present, $0.0006891. Hermes Qwen attempt 4 after the
+  fix still errored, $0.00242203, because the gateway's MCP
+  server process predated the fix and Hermes reuses it;
+  the stale server was stopped and a fresh one spawned.
+  Hermes Qwen attempt 5 reproduced, confirmed true,
+  $0.00124139. Tool total $0.01265594, Hermes agent turns
+  about $0.01179, pass total about $0.02445 of the $1.00
+  cap. Internal re-audit: clean, 0 confirmed, see
+  AUDIT-2026-11-11-v055.md, workspace only.
+
 ## [0.5.4] - 2026-11-11
 
 ### Fixed
