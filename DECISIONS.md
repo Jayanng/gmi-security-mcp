@@ -1262,8 +1262,7 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   existing entries. 3 new unit tests, suite 302 to 305,
   including the regression: SSRF PoC reproduces through
   run_poc with proxy vars set and NO_PROXY absent.
-  Hermes re-test after the fix to follow, 1 Qwen attempt,
-  Gemini fallback only if Qwen still errors.
+  Hermes re-test after the fix is in the next bullet.
 - Live re-test, second half, after the proxy fix: Muse
   round 2 reproduced first try in the hostile env
   (NO_PROXY removed from the server env, proxy vars
@@ -1283,8 +1282,8 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   passed. Lesson recorded: after a server code change,
   a Hermes live test must run against a fresh MCP server
   process, not a reused gateway one.
-- Live re-test and internal re-audit to follow in this pass,
-  $1.00 cap. Muse MCP first (cheap, gemini-3.5-flash-lite),
-  then Hermes (Qwen/Qwen3.8-Flash first, fallback Gemini),
-  generated SSRF PoC expected reproduced, stop after 3
-  attempts per model if still failing.
+- Live re-test done, internal re-audit done, this pass:
+  Muse round 2 and Hermes Qwen attempt 5 both reproduced,
+  audit clean, 0 confirmed, see AUDIT-2026-11-11-v055.md
+  (workspace only). Pass total about $0.02445 of the
+  $1.00 cap.
