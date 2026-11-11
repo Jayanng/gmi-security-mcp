@@ -287,6 +287,39 @@ def test_status_verified_to_confirmed_needs_verification_mockllm(
         assert finding["status"] == "confirmed"
 
 
+def test_status_verified_is_operator_set_without_verification_mockllm(
+    tmp_path,
+):
+    """v0.5.6 gap 5(b), accepted design: verified is operator-set.
+
+    triaged -> verified succeeds with has_verification False: no
+    reproduced verification is needed. Only confirmed is gated:
+    validate_status_transition refuses it without a reproduced
+    verification, and mark_confirmed refuses it too. verified is
+    the intermediate status verify_finding itself sets when its
+    oracle reproduces, and the operator's own review step; the
+    proof-backed status is confirmed, not verified. Requiring a
+    verification_id for verified would block an operator
+    recording an out-of-band verification, so the behaviour
+    stays and this test pins it.
+    """
+    db = _db(tmp_path)
+    with store_mod.connect(db) as conn:
+        finding_id, _ = _insert_finding(conn, status="triaged")
+        finding, error = store_mod.update_finding_status(
+            conn, finding_id, "verified", "operator reviewed",
+            actor="operator", has_verification=False,
+        )
+        assert error is None
+        assert finding["status"] == "verified"
+        _finding, error = store_mod.update_finding_status(
+            conn, finding_id, "confirmed", "looks real",
+            actor="operator", has_verification=False,
+        )
+        assert error is not None
+        assert "cannot move to confirmed" in error
+
+
 def test_status_false_positive_reopened_on_rescan_mockllm(tmp_path):
     db = _db(tmp_path)
     with store_mod.connect(db) as conn:

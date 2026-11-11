@@ -1287,3 +1287,248 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   audit clean, 0 confirmed, see AUDIT-2026-11-11-v055.md
   (workspace only). Pass total about $0.02445 of the
   $1.00 cap.
+
+## 27. v0.5.6: gap 4 server-side PoC retry closed wont-do, gap 5 residuals, 2026-11-11
+
+- Gap 4, server-side generation retry, final decision:
+  wont-do, closed. This re-evaluates the v0.5.5 deferral
+  (section 26) with evidence instead of leaving it open.
+  Two safe-looking designs were worked through against the
+  code, and each breaks a stated constraint.
+  - Design A, run the retried PoC in the same call because
+    confirm_generated_poc was already true: breaks NV-1 as
+    the gap frames it. The confirm flag is set before either
+    PoC exists, so the second PoC would run unreviewed, with
+    no review step for that specific text. Section 24 gates
+    a generated PoC by its text, reviewed then run, and the
+    confirm flag is the caller's explicit opt-in to run the
+    PoC generated in that call, not a blanket authorisation
+    for whatever a second generation produces. It also
+    breaks the no-surprise-spend rule in its strong form:
+    the second generation prompt contains the first PoC plus
+    the oracle failure, and parse_poc_generation (verify.py)
+    puts no length cap on the poc string, so the second
+    prompt length, and therefore its max cost, cannot be
+    bounded before the first generation runs. The only hard
+    guarantee available is checking the second max against
+    the remaining cap after the first run, which is what the
+    manual re-call already does, one call at a time.
+  - Design B, generate the retried PoC and return it as
+    skipped for review: keeps NV-1 intact but breaks the
+    result contract. A confirmed run that returned
+    not_reproduced, with poc_before ran true and oracle
+    assertions, would come back as skipped with poc_before
+    ran false, so the returned result no longer records the
+    run that happened. Keeping both records means storing
+    two verifications per call and returning a
+    verification_id that points at the skipped one while the
+    not_reproduced row sits unreferenced, or overwriting the
+    first result. It also needs carve-outs to stay sound:
+    generated PoCs only, never a supplied PoC or a
+    test_command; no fix_candidate, because patch validation
+    would either run the retried PoC (back to Design A) or
+    skip validation and leave patch_passed meaningless; only
+    not_reproduced, not error, because error covers
+    infrastructure failures (Docker unavailable, timeout,
+    PoC could not run) where regeneration cannot help and
+    only wastes spend; and a second-generation failure
+    (unparsed, or a generation error) needs its own return
+    shape, either the first not_reproduced result or a new
+    error, with no clean answer. Six carve-outs and three
+    ambiguous return shapes for a feature that saves no
+    round trip: the caller must still re-call to run the
+    retried PoC, which is exactly the manual path.
+  - The manual path was proven with a deterministic PoC
+    (MockLLM, $0 live, script
+    ~/workspace/gmi-clouder/.scratch/gap5-poc-2026-11-11.py):
+    call 1 with a broken generated PoC, confirmed, returns
+    not_reproduced, cost $0.00011; call 2 with the same PoC
+    supplied after review returns reproduced, confirmed
+    true. Each call checks its own generation max against
+    its own spend cap (server.py line 2249), each generation
+    is caller-chosen, and the oracle failure is already in
+    the first result's assertions for the caller to feed
+    back. That is the documented v0.5.5 workaround, and it
+    works. No new flag was added: an opt-in
+    retry_generated_poc flag was considered and rejected
+    for 0.5.6, because it adds API surface for a second
+    generation the caller must still review and re-call to
+    run.
+  - Closed as wont-do. Do not reopen without a redesign
+    that names the return shape for a retried PoC, the cap
+    accounting for an unbounded second prompt, and the
+    fix_candidate and test_command carve-outs, plus a caller
+    who asks for it.
+- Gap 5(a): bare JWT redacted, bare hex and base64 wont-do.
+  Deterministic PoC before the fix: redact() returned 0 hits
+  for the jwt.io example token assigned to plain "token" and
+  for the same token bare with no key name, while Bearer JWTs
+  were already redacted (v0.5.4). Fix: a jwt_token pattern in
+  redact.py, narrow on purpose. The first segment must start
+  eyJ (base64url of '{"'), there must be the two dots of a
+  three-segment JWT, the match must start a token (not inside
+  a longer base64 run), and the match must be at least 20
+  characters, so a header-only fragment or a short dotted
+  word is left alone. It runs after bearer_token and
+  assigned_secret in the pattern order, so a Bearer JWT
+  counts once as bearer_token and an api_key JWT counts once
+  as assigned_secret, with no double count. Five new tests
+  in tests/test_cost_redact.py pin the bare case, both
+  single-count cases, the short and fragment cases, and the
+  wont-do half below. Bare 40-char hex, 64-char hex, colon
+  hex, and bare base64 values are NOT redacted, by design:
+  the same PoC showed 0 hits for a SHA-1 git hash, a SHA-256
+  digest, a colon-hex host-key fingerprint, and a 32-char
+  base64 value, and that is correct, because with no key
+  name and no distinctive shape they cannot be told apart
+  from a public hash or identifier. PoC output hashes are
+  sha256 hex and the oracles read them, so redacting bare
+  hex would destroy evidence. Secret-shaped values are
+  still caught by their prefix (AKIA, ghp_, sk-) or by an
+  assigned key name. Entropy-based detection of bare
+  literals is gitleaks and trufflehog territory, not this
+  redactor, and is out of scope here.
+- Gap 5(b): accepted design, no behaviour change.
+  update_finding can set verified with no reproduced
+  verification, and that is intentional. Evidence, same
+  deterministic PoC: triaged to verified succeeds with
+  has_verification False, through store.update_finding_status
+  and through update_finding_impl; verified to confirmed
+  without a verification is refused with "finding cannot
+  move to confirmed without a verification result with
+  status reproduced. An LLM verdict alone cannot set
+  confirmation."; mark_confirmed_impl refuses the same way.
+  verified is the intermediate status verify_finding itself
+  sets when its oracle reproduces (server.py
+  _record_verification) and the operator's own review step;
+  the proof-backed status is confirmed, not verified. The
+  gate sits exactly where Phase A2 designed it
+  (validate.validate_status_transition, DECISIONS.md
+  section 19, and the section 25 residual note), and the
+  operator calling update_finding is trusted the same way
+  the operator calling mark_fp or force-suppress is. A
+  minimal fix (verified requires a verification_id) was
+  considered and rejected: it would block an operator
+  recording an out-of-band verification and would break the
+  verify_impl reproduced path, which moves a finding to
+  verified through the same function. Pinned by a new test,
+  test_status_verified_is_operator_set_without_verification_mockllm
+  in tests/test_store.py.
+- Gap 5(c): consistent-by-design, no behaviour change.
+  confirm_generated_poc accepts truthy values, and so does
+  every other bool flag in the codebase. Evidence,
+  deterministic PoC plus code: confirm_generated_poc "yes"
+  runs a generated PoC and "" does not; run_poc "yes" runs a
+  supplied PoC; regression_check "yes" lets a false_positive
+  finding proceed as a regression check; force "yes"
+  suppresses a critical finding with business impact Urgent.
+  In code, run_poc and two_stage are plain `if flag` checks
+  in server.py, regression_check is bool(...) at every
+  _verify_result call site, force is bool(force) in
+  update_finding_impl, dry_run is `if not dry_run` in
+  repo_scan_impl. The MCP tool signatures annotate these
+  bool, so over MCP a JSON string never reaches the impl:
+  the transport enforces boolean, and truthiness only shows
+  for direct Python callers, which is normal Python
+  behaviour. _tool_json, named in the gap, is not a flag
+  handler at all: it is json.loads in mcp_test.py, the
+  test-script guard for non-JSON tool results. Tightening
+  only confirm would be inconsistent, so nothing changes.
+  Pinned by a new test,
+  test_verify_mockllm_bool_flags_accept_truthy_values in
+  tests/test_verify.py.
+- Gap 5(d): closed with evidence, no fix needed.
+  The NV-1 gate already shows the spent generation cost.
+  Deterministic PoC (MockLLM, SSRF fixture): a generated
+  PoC with run_poc true and no confirmation returns status
+  skipped, poc_before ran False, the PoC returned for
+  review, cost_usd $0.00011, exactly equal to
+  cost_from_usage of the generation usage (200 prompt
+  tokens, 20 completion tokens on
+  google/gemini-3.5-flash-lite), estimate_usd $0.0007483,
+  above zero, with model and usage present. The run_poc
+  false path shows the same cost and estimate. No run cost
+  is added on top, because nothing ran. Pinned by a new
+  test, test_verify_mockllm_nv1_skipped_shows_generation_cost
+  in tests/test_verify.py.
+- Side note found during the gap 5(a) check, fixed in
+  section 28, not left open: an assigned secret whose value
+  was already redacted by an earlier pattern counted 2
+  (bearer_token, then assigned_secret on the already
+  redacted value). That was pre-existing behaviour from
+  v0.5.4, not a JWT regression: the JWT pattern was placed
+  last precisely so it does not add a third count. The
+  release pass fixed the count to 1; see section 28.
+- Tests, v0.5.6 gap pass: 313 unit tests pass, 0 failed,
+  locally (305 in v0.5.5, 8 new: 5 redact, 2 verify, 1
+  store). $0.00 GMI spend for this pass, MockLLM and
+  deterministic PoC only, no live model call. CHANGELOG.md
+  gains a 0.5.6 entry. Version files are bumped in the
+  release pass; see section 28.
+
+## 28. v0.5.6 release pass, 2026-11-11
+
+- Gaps 1-3 closed by the first worker: LICENSE restored
+  from the bug-bounty clone, sha256
+  44fd2f5a369ef0935ed984f0db2346cb69ce23849d5a2fb1447b26ac005c2dd1,
+  exact match to the repo copy; mcp-publisher 1.8.8
+  installed locally and on bug-bounty
+  (~/.local/bin/mcp-publisher, commit
+  d6b071e520de72dd6c10731bfa3aa017a5c06373, built
+  2026-11-06T14:07:29Z, tarball sha256 verified against the
+  official checksums file) and server.json re-validated via
+  the CLI, exit 0, "server.json is valid", on both machines;
+  CHANGELOG v0.5.4 "to follow" line closed with a follow-up
+  bullet under 0.5.5, v0.5.4 history untouched, numbers
+  verified from the v0.5.4 live log and audit (all 15 tools
+  pass, $0.009559 of the $1.00 cap, 126 candidates, 0
+  confirmed).
+- Gaps 4-5 closed by the second worker: retry wont-do final
+  (section 27), bare JWT redaction implemented, bare
+  hex/base64 wont-do, update_finding verified accepted
+  design, truthy bool flags consistent-by-design, NV-1
+  skipped cost shown with evidence.
+- Release pass extra fix: redaction double count. An
+  assigned secret whose value was already redacted by an
+  earlier pattern counted twice. Fix: assigned_secret
+  skips a value already containing [REDACTED] and counts
+  only actual replacements. Deterministic proof: an
+  assigned Bearer value now returns count 1, hits
+  [bearer_token], text with the scheme word kept. One new
+  test, test_redact_bearer_assigned_double_count, suite
+  313 to 314.
+- Version bumped to 0.5.6 in pyproject.toml,
+  src/gmi_security_mcp/__init__.py, and server.json (both
+  version fields). server.json re-validated with
+  mcp-publisher 1.8.8 CLI after the bump, exit 0.
+- Open items after this release: none. Every gap from the
+  v0.5.5 report is closed, implemented, or finally
+  wont-do/accepted-design with evidence in sections 27
+  and 28.
+
+## 28, addendum. Audit follow-ups, v0.5.6 release pass, 2026-11-11
+
+- Audit A1, assigned_secret already-redacted skip: the
+  v0.5.6 fix skipped any value containing the substring
+  [REDACTED], so a real secret with that word inside a
+  longer value would pass through unredacted. Tightened
+  to an exact test: skip only when the value, quotes
+  stripped and an optional "Bearer " prefix removed, is
+  exactly [REDACTED]. Deterministic proof:
+  api_key with a Bearer value still counts 1,
+  api_key = "abc[REDACTED]def" is redacted, count 1,
+  api_key = "[REDACTED]" counts 0. One new test,
+  test_redact_value_containing_redacted_word_still_redacted,
+  suite 314 to 315.
+- Audit note, verify_impl fix-write/restore: refuted by
+  code reading. The fix write and the PoC run sit inside
+  try, with restore in finally, so a crash in run_poc
+  still restores the original bytes. Only a hard process
+  kill could leave the file modified, which no code in
+  this process can guard against. No change.
+- Audit note, demo/term-server.py unauthenticated loopback
+  pty: demo/ is gitignored and not shipped in the repo
+  (verified in the push check, git ls-files shows no demo
+  files). It is a local demo helper only, loopback only.
+  No change to the shipped product; recorded here so a
+  later audit does not mistake it for a shipped service.

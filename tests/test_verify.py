@@ -23,6 +23,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from gmi_security_mcp import cost as cost_mod
 from gmi_security_mcp import server as srv
 from gmi_security_mcp import validate as v
 from gmi_security_mcp import verify as verify_mod
@@ -744,6 +745,102 @@ def test_verify_mockllm_generated_poc_run_without_confirm_is_skipped(tmp_path):
     assert "confirm_generated_poc" in (result["error"] or "")
     assert result["model"] == CHEAP
     assert result["cost_usd"] > 0
+
+
+def test_verify_mockllm_nv1_skipped_shows_generation_cost(tmp_path):
+    """v0.5.6 gap 5(d): the NV-1 skipped result shows the spent cost.
+
+    Generation already ran when the gate returns skipped, and the
+    result carries it: cost_usd is exactly cost_from_usage of the
+    generation usage, estimate_usd is the pre-call typical
+    estimate and above zero, and model and usage are present. The
+    PoC is returned for review and poc_before.ran is False, so no
+    run cost is added on top.
+    """
+    repo = _repo(tmp_path)
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        chat_fn=_mockllm_chat(_poc_text("ssrf")),
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped", result
+    assert result["poc_before"]["ran"] is False
+    assert result["cost_usd"] > 0
+    assert result["cost_usd"] == cost_mod.cost_from_usage(
+        result["usage"], CHEAP, pricing=PRICING
+    )
+    assert result["estimate_usd"] is not None
+    assert result["estimate_usd"] > 0
+    assert result["model"] == CHEAP
+    assert result["usage"] == {
+        "prompt_tokens": 200,
+        "completion_tokens": 20,
+    }
+    assert result["poc"] is not None
+
+
+def test_verify_mockllm_bool_flags_accept_truthy_values(tmp_path):
+    """v0.5.6 gap 5(c), consistent-by-design: bool flags use plain
+    truthiness, confirm_generated_poc included.
+
+    confirm_generated_poc "yes" runs a generated PoC and "" does
+    not; run_poc "yes" runs a supplied PoC; regression_check
+    "yes" lets a false_positive finding proceed as a regression
+    check. Every other bool flag does the same: run_poc and
+    two_stage are plain `if flag` checks in server.py,
+    regression_check is bool(...) at every _verify_result call
+    site, force is bool(force) in update_finding_impl, dry_run
+    is `if not dry_run` in repo_scan_impl. The MCP tool
+    signatures annotate these bool, so over MCP a JSON string
+    never reaches the impl: the transport enforces boolean.
+    Tightening only confirm would be inconsistent, so the
+    behaviour stays and this test pins it.
+    """
+    repo = _repo(tmp_path)
+    confirmed = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        confirm_generated_poc="yes",
+        chat_fn=_mockllm_chat(_poc_text("ssrf")),
+        pricing=PRICING,
+    )
+    assert confirmed["status"] == "reproduced", confirmed
+    assert confirmed["poc_before"]["ran"] is True
+    unconfirmed = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        confirm_generated_poc="",
+        chat_fn=_mockllm_chat(_poc_text("ssrf")),
+        pricing=PRICING,
+    )
+    assert unconfirmed["status"] == "skipped", unconfirmed
+    assert unconfirmed["poc_before"]["ran"] is False
+    supplied = srv.verify_impl(
+        finding=_finding("sqli"),
+        repo_path=str(repo),
+        poc=_poc_text("sqli"),
+        run_poc="yes",
+        pricing=PRICING,
+    )
+    assert supplied["status"] == "reproduced", supplied
+    regression = srv.verify_impl(
+        finding=_finding("sqli", verdict="false_positive"),
+        repo_path=str(repo),
+        poc=_poc_text("sqli"),
+        run_poc=True,
+        regression_check="yes",
+        pricing=PRICING,
+    )
+    assert regression["status"] == "reproduced", regression
+    assert regression["confirmed"] is False
+    assert regression["regression_check"] is True
 
 
 def test_verify_mockllm_generated_poc_run_with_confirm_not_reproduced(tmp_path):

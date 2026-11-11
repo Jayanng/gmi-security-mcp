@@ -98,6 +98,29 @@ def test_redact_github_pat():
     assert "github_pat_classic" in hits
 
 
+def test_redact_bearer_assigned_double_count():
+    """v0.5.6: api_key = "Bearer <token>" counted 2 before this
+    fix (bearer_token, then assigned_secret on the already
+    redacted value). One secret value must count once."""
+    text, count, hits = r.redact(
+        'api_key = "Bearer abcdefghij1234567890"'
+    )
+    assert count == 1
+    assert hits == ["bearer_token"]
+    assert text == 'api_key = "Bearer [REDACTED]"'
+
+
+def test_redact_value_containing_redacted_word_still_redacted():
+    """Audit follow-up: the already-redacted skip is exact,
+    not a substring test. A real secret that merely contains
+    the word [REDACTED] inside a longer value is still
+    redacted, not left through."""
+    text, count, hits = r.redact('api_key = "abc[REDACTED]def"')
+    assert count == 1
+    assert "assigned_secret" in hits
+    assert "abc[REDACTED]def" not in text
+
+
 def test_redact_assigned_secret():
     text, count, hits = r.redact('api_key = "supersecretvalue"')
     assert "supersecretvalue" not in text and "[REDACTED]" in text
@@ -133,3 +156,99 @@ def test_redact_bearer_short_value_not_flagged():
     text, count, _hits = r.redact("Bearer short")
     assert count == 0
     assert text == "Bearer short"
+
+
+# jwt.io public example token: shape-identical to a real JWT,
+# a public test vector, not a secret. Used so the tests prove
+# the shape rule without holding a real credential.
+JWT_IO_EXAMPLE = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ"
+    ".SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+)
+
+
+def test_redact_bare_jwt():
+    """v0.5.6 gap 5(a): a bare JWT was not redacted before this fix.
+
+    Deterministic proof: redact() returned 0 hits for a JWT
+    assigned to plain "token" (assigned_secret needs a key name
+    like api_key, and plain token is not one) and for a bare
+    JWT with no key name at all. A JWT is a credential, so the
+    narrow eyJ three-segment rule redacts it, keeping the
+    surrounding code.
+    """
+    text, count, hits = r.redact('token = "%s"' % JWT_IO_EXAMPLE)
+    assert count == 1
+    assert hits == ["jwt_token"]
+    assert JWT_IO_EXAMPLE not in text
+    assert 'token = "[REDACTED]"' in text
+    text, count, hits = r.redact("auth = %s" % JWT_IO_EXAMPLE)
+    assert count == 1
+    assert "jwt_token" in hits
+    assert JWT_IO_EXAMPLE not in text
+
+
+def test_redact_bearer_jwt_single_count():
+    """A Bearer JWT is redacted once, by bearer_token, not twice.
+
+    jwt_token runs after bearer_token in the pattern order, so
+    by the time it runs the token is already [REDACTED] and
+    there is nothing left for it to count.
+    """
+    text, count, hits = r.redact(
+        'headers = {"Authorization": "Bearer %s"}' % JWT_IO_EXAMPLE
+    )
+    assert count == 1
+    assert hits == ["bearer_token"]
+    assert JWT_IO_EXAMPLE not in text
+    assert "Bearer [REDACTED]" in text
+
+
+def test_redact_assigned_jwt_single_count():
+    """A JWT assigned to api_key is redacted once, by assigned_secret."""
+    text, count, hits = r.redact('api_key = "%s"' % JWT_IO_EXAMPLE)
+    assert count == 1
+    assert hits == ["assigned_secret"]
+    assert JWT_IO_EXAMPLE not in text
+
+
+def test_redact_jwt_short_or_fragment_not_flagged():
+    """The JWT rule is narrow: short dotted words and a
+    header-only fragment (no dots, just the eyJ header) are not
+    credentials and are left alone, so the count stays exact."""
+    text, count, _hits = r.redact("host = eyJ.example.com")
+    assert count == 0
+    assert text == "host = eyJ.example.com"
+    text, count, _hits = r.redact("header = eyJhbGciOiJIUzI1NiJ9")
+    assert count == 0
+    assert text == "header = eyJhbGciOiJIUzI1NiJ9"
+
+
+def test_redact_bare_hex_and_base64_not_redacted():
+    """v0.5.6 gap 5(a), wont-do half: bare high-entropy literals
+    with no secret shape are NOT redacted, by design.
+
+    A 40-char hex value is a git SHA-1, a 64-char hex value is
+    a SHA-256 digest (PoC output hashes are sha256 hex, and the
+    oracles read them), a colon-hex value is a host-key
+    fingerprint, and a bare base64 value is often a nonce or
+    id. With no key name and no distinctive shape they cannot
+    be told apart from a public hash or identifier, so
+    redacting them would destroy evidence. Secret-shaped
+    values are still caught by their prefix (AKIA, ghp_, sk-)
+    or by an assigned key name.
+    """
+    import hashlib
+
+    sha1 = hashlib.sha1(b"x").hexdigest()
+    sha256 = hashlib.sha256(b"x").hexdigest()
+    text, count, hits = r.redact(
+        'commit = "%s"\ndigest = "%s"\n'
+        'seen = "b9:4d:1a:2c:3d:4e:5f:6a:7b:8c:9d:0e:1f:2a:3b:4c"\n'
+        'value = "MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1u"\n' % (sha1, sha256)
+    )
+    assert count == 0 and hits == []
+    assert sha1 in text and sha256 in text
+    assert "b9:4d:1a:2c" in text
+    assert "MDEyMzQ1Njc4OWFiY2RlZmdoaWprbG1u" in text

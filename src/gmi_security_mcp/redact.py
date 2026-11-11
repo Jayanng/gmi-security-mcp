@@ -3,7 +3,10 @@
 Every code snippet is scanned first. Values that look like keys,
 tokens, or passwords are replaced with [REDACTED] and the redaction
 is noted in the tool result. The raw snippet is never sent when a
-secret-shaped value is present.
+secret-shaped value is present. Bare JWTs are redacted too
+(v0.5.6, narrow eyJ three-segment rule); bare high-entropy
+literals with no secret shape are not, they cannot be told
+apart from a public hash or id.
 """
 
 import re
@@ -35,6 +38,32 @@ _PATTERNS = [
             r"(\s*[:=]\s*)([\"'][^\"']+[\"']|[^\s,;]+)"
         ),
     ),
+    # v0.5.6: bare JWTs were not redacted. Bearer fixed the
+    # "Authorization: Bearer <token>" case in v0.5.4, but a JWT
+    # sitting bare in code, for example token = "eyJ...", passed
+    # through with 0 hits: the assigned_secret pattern needs a
+    # key name, and plain "token" is not one. A JWT is a
+    # credential, so it is redacted. The rule is narrow on
+    # purpose: the first segment must start eyJ (base64url of
+    # '{"'), there must be exactly the two dots of a three
+    # segment JWT, the match must start a token (not inside a
+    # longer base64 run), and the match must be at least 20
+    # characters, so a header-only fragment or a short dotted
+    # word is left alone. Bare high-entropy literals with no
+    # JWT shape, a 40-char hex git SHA, a 64-char hex digest,
+    # a colon-hex fingerprint, a bare base64 value, are NOT
+    # redacted by this rule: with no key name and no shape
+    # they cannot be told apart from a public hash or id, and
+    # redacting them would destroy evidence the oracles read
+    # (PoC output hashes are sha256 hex). See DECISIONS.md
+    # section 27.
+    (
+        "jwt_token",
+        re.compile(
+            r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]*"
+            r"\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
+        ),
+    ),
 ]
 
 _REDACTED = "[REDACTED]"
@@ -61,12 +90,46 @@ def redact(text):
                 count += made
                 hits.append(name)
         elif name == "assigned_secret":
+            # A value already replaced by an earlier pattern
+            # (e.g. Bearer) is exactly "[REDACTED]" once quotes
+            # are stripped, and must not be counted a second
+            # time: the secret was one value, so the count must
+            # stay 1. The test is exact, not a substring test:
+            # a real secret that merely contains the word
+            # [REDACTED] inside a longer value is still
+            # redacted. subn counts even a replacement that
+            # returns the text unchanged, so count from the
+            # replace callback instead.
+            made = []
+
             def _replace(match):
+                value = match.group(3).strip("\"'")
+                if value.removeprefix("Bearer ") == _REDACTED:
+                    return match.group(0)
+                made.append(1)
                 return match.group(1) + match.group(2) + _REDACTED
 
-            result, made = pattern.subn(_replace, result)
+            result = pattern.sub(_replace, result)
             if made:
-                count += made
+                count += len(made)
+                hits.append(name)
+        elif name == "jwt_token":
+            # Only a JWT-shaped match of 20 characters or more
+            # is a credential. A short dotted word or a header
+            # fragment is left alone, and the count must reflect
+            # only values actually replaced, so short matches
+            # return unchanged and are not counted.
+            made = []
+
+            def _replace_jwt(match):
+                if len(match.group(0)) >= 20:
+                    made.append(1)
+                    return _REDACTED
+                return match.group(0)
+
+            result = pattern.sub(_replace_jwt, result)
+            if made:
+                count += len(made)
                 hits.append(name)
         else:
             result, made = pattern.subn(_REDACTED, result)

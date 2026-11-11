@@ -6,6 +6,86 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.6] - 2026-11-11
+
+### Fixed
+
+- Redaction double count, found while closing gap 5(a):
+  api_key = "Bearer <token>" counted 2 before this fix
+  (bearer_token, then assigned_secret on the already
+  redacted value). One secret value now counts once:
+  assigned_secret skips a value already containing
+  [REDACTED]. The final text was already correct; only
+  the count was wrong. See DECISIONS.md section 28.
+- Bare JWT redaction: redact() returned 0 hits for a JWT
+  sitting bare in code, for example token = "eyJ...", because
+  the assigned_secret pattern needs a key name and plain
+  "token" is not one. Bearer JWTs were already redacted in
+  v0.5.4. A narrow jwt_token rule now redacts a JWT: first
+  segment starts eyJ, two dots, three segments, starts a
+  token, at least 20 characters. Short dotted words and
+  header-only fragments are left alone. It runs after
+  bearer_token and assigned_secret, so a Bearer JWT and an
+  api_key JWT each count once, with no double count. See
+  DECISIONS.md section 27.
+
+### Closed, not implemented
+
+- Server-side retry of PoC generation, gap 4, deferred in
+  v0.5.5: closed as wont-do, final. Running a retried PoC
+  under the original confirm flag would run unreviewed
+  generated code, and returning it as skipped flips a
+  not_reproduced verdict to skipped and loses the run
+  record, with carve-outs needed for fix_candidate,
+  test_command, supplied PoCs, and error results, plus a
+  second prompt length that cannot be bounded upfront
+  because the first PoC has no server-side length cap. The
+  manual re-call already works: a broken generated PoC
+  returns not_reproduced, and the same PoC supplied after
+  review reproduces, proven with a deterministic MockLLM
+  PoC, $0.00 live spend. See DECISIONS.md section 27.
+- Bare high-entropy literals, gap 5(a): a 40-char hex git
+  SHA, a 64-char hex digest, a colon-hex fingerprint, and a
+  bare base64 value are not redacted, by design. With no key
+  name and no distinctive shape they cannot be told apart
+  from a public hash or identifier, and PoC output hashes
+  are sha256 hex that the oracles read. See DECISIONS.md
+  section 27.
+- update_finding setting verified without a reproduced
+  verification, gap 5(b): accepted design, no change.
+  verified is an operator-set intermediate status; only
+  confirmed is gated, and it refuses without a reproduced
+  verification. See DECISIONS.md section 27.
+- confirm_generated_poc accepting truthy values, gap 5(c):
+  consistent-by-design, no change. Every bool flag in the
+  codebase uses plain truthiness, and the MCP transport
+  enforces boolean through the tool annotations. See
+  DECISIONS.md section 27.
+- Generation cost already spent when the NV-1 gate returns
+  skipped, gap 5(d): closed with evidence, no fix needed.
+  The skipped result shows cost_usd exactly equal to the
+  generation usage cost and estimate_usd above zero, with
+  model and usage present, and no run cost added. See
+  DECISIONS.md section 27.
+
+### Tests, v0.5.6 fix pass
+
+- 315 unit tests pass, 0 failed, locally. New: 10 tests, 7
+  redact (bare JWT, Bearer single count, assigned JWT
+  single count, short and fragment JWTs untouched, bare hex
+  and base64 untouched, Bearer-assigned double count fixed
+  to 1, already-redacted skip is exact not substring), 2
+  verify (NV-1 skipped result shows the generation cost,
+  bool flags accept truthy values), 1 store (verified is
+  operator-set without a reproduced verification, confirmed
+  still refused).
+- $0.00 GMI spend for the gap fixes and audit: MockLLM and
+  deterministic PoC only, no live model call. Live re-test
+  in the release pass, Muse MCP, gemini-3.5-flash-lite:
+  triage SQLi real, $0.0003325, generated SSRF PoC
+  reproduced and confirmed, $0.0007213, pass total
+  $0.0010538 of the $1.00 cap. See SPEND.md v0.5.6.
+
 ## [0.5.5] - 2026-11-11
 
 ### Fixed
@@ -91,6 +171,16 @@ section.
   about $0.01179, pass total about $0.02445 of the $1.00
   cap. Internal re-audit: clean, 0 confirmed, see
   AUDIT-2026-11-11-v055.md, workspace only.
+- Follow-up to the v0.5.4 Tests line: the v0.5.4 live
+  iterative test of all 15 tools and internal re-audit
+  happened in the v0.5.4 pass itself, not in v0.5.5. All
+  15 tools pass with no error, pass total $0.009559 of
+  the $1.00 cap (rounds $0.006992 + $0.001883 +
+  $0.000684), see live-behaviour-test-v054-2026-11-11.md.
+  Internal re-audit clean, 126 candidates reviewed, 0
+  confirmed, see AUDIT-2026-11-11-v054.md. The test also
+  exposed the SSRF second-half defect fixed in this
+  version, see DECISIONS.md section 26.
 
 ## [0.5.4] - 2026-11-11
 
