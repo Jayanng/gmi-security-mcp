@@ -7,15 +7,32 @@ recorded in the sections below; the 0.0.1 to 0.3.0 entries at
 the end were moved here from the README changelog section in
 the 0.5.8 README rewrite, so no history is lost.
 
-## [Unreleased]
+## [0.5.9] - 2026-11-12
+
+### Fixed
+
+- repo_scan now returns `cost_usd` as well as `total_cost_usd`,
+  same value. A caller reading only `cost_usd` used to see $0
+  for a repo_scan. `total_cost_usd` is kept for compatibility.
+  New unit test asserts `cost_usd` is present and equals
+  `total_cost_usd`.
+- verify_finding oracle lookup now matches by normalized check
+  name: case-insensitive, extra spaces collapsed, trailing
+  parenthetical suffix stripped. "Server-side request forgery"
+  now maps to the SSRF oracle, as do the short names for all
+  five categories: SQL injection, Cross-site scripting, Path
+  traversal, and Missing SSH host key verification. Exact
+  display names still work. No oracle behaviour changes
+  otherwise. New unit tests cover each short name.
 
 ### Changed
 
 - README rewritten: 975 lines to 81, short and sharp. The
   detail moved to the reference appendix at the end of
   TUTORIAL.md, and the 0.0.1 to 0.3.0 changelog headlines
-  moved to the end of this file. No facts deleted, no version
-  bump, no new release for this change.
+  moved to the end of this file. No facts deleted. This is
+  the first release that ships the short README on PyPI:
+  the 0.5.8 PyPI page still showed the old long README.
 
 ### Added
 
@@ -36,8 +53,8 @@ the 0.5.8 README rewrite, so no history is lost.
   `gmi-security-mcp`, Owner `Jayanng`, Repository name
   `gmi-security-mcp`, Workflow name `publish.yml`,
   Environment name `pypi`, at
-  https://pypi.org/manage/account/publishing/. No version
-  bump in this change, version stays 0.5.7, the workflow
+  https://pypi.org/manage/account/publishing/. Added on the
+  0.5.7 line with no version bump then; the workflow
   publishes whatever version a release is cut from.
 
 ## [0.5.8] - 2026-11-11

@@ -104,6 +104,8 @@ def test_repo_scan_triages_findings(tmp_path):
     assert result["findings_no_verdict"] == 0
     assert result["stopped_early"] is False
     assert result["total_cost_usd"] > 0
+    assert result["cost_usd"] == result["total_cost_usd"]
+    assert result["cost_usd"] > 0
     first = result["findings"][0]
     assert first["file"] == "src/server.js"
     assert first["check"] == "Path traversal"

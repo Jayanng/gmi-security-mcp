@@ -463,6 +463,36 @@ def test_category_mapping_host_key():
     assert verify_mod.category_for_check("Hardcoded secrets") is None
 
 
+def test_category_mapping_short_names():
+    # Short check names, without the parenthetical suffix, map
+    # to the same oracle as the exact display names.
+    assert verify_mod.category_for_check("SQL injection") == "sqli"
+    assert verify_mod.category_for_check("Cross-site scripting") == "xss"
+    assert (
+        verify_mod.category_for_check("Server-side request forgery")
+        == "ssrf"
+    )
+    assert verify_mod.category_for_check("Path traversal") == "path_traversal"
+    assert (
+        verify_mod.category_for_check("Missing SSH host key verification")
+        == "host_key"
+    )
+    # Exact display names still work, as do case and spacing.
+    assert (
+        verify_mod.category_for_check("Cross-site scripting (XSS)")
+        == "xss"
+    )
+    assert (
+        verify_mod.category_for_check("Server-side request forgery (SSRF)")
+        == "ssrf"
+    )
+    assert (
+        verify_mod.category_for_check("  server-side  REQUEST forgery ")
+        == "ssrf"
+    )
+    assert verify_mod.category_for_check("Hardcoded secrets") is None
+
+
 # --- PoC runner ------------------------------------------------------
 
 

@@ -19,7 +19,7 @@
       "transport": {
         "type": "stdio"
       },
-      "version": "0.5.8"
+      "version": "0.5.9"
     }
   ],
   "repository": {
@@ -28,6 +28,6 @@
     "url": "https://github.com/Jayanng/gmi-security-mcp"
   },
   "title": "gmi-security-mcp",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "websiteUrl": "https://github.com/Jayanng/gmi-security-mcp"
 }

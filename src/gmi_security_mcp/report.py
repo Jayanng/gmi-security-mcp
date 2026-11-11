@@ -27,6 +27,10 @@ def build_report(**fields):
         "skipped": fields.get("skipped", []),
         "osv": fields.get("osv"),
         "total_cost_usd": fields.get("total_cost_usd", 0.0),
+        # cost_usd is the same total, kept alongside
+        # total_cost_usd for compatibility: callers that read
+        # only cost_usd used to see $0 for a repo_scan.
+        "cost_usd": fields.get("total_cost_usd", 0.0),
         "estimate_usd": fields.get("estimate_usd"),
         "max_estimate_usd": fields.get("max_estimate_usd"),
         "stopped_early": fields.get("stopped_early", False),

@@ -1706,3 +1706,27 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
 - TUTORIAL.md section 1 install updated to the PyPI form,
   and the section 9 pointer to the Limitations section now
   points at the appendix in the same file.
+
+## 33. v0.5.9 polish fixes, 2026-11-12
+
+- User approved fixing the two polish items from the Muse
+  v0.5.8 test, in v0.5.9.
+- Fix 1: repo_scan now returns cost_usd as well as
+  total_cost_usd, same value, in report.py build_report.
+  total_cost_usd is kept for compatibility. A caller
+  reading only cost_usd used to see $0 for a repo_scan.
+- Fix 2: verify oracle lookup now matches by normalized
+  check name in verify.py category_for_check: lowercased,
+  extra spaces collapsed, trailing parenthetical suffix
+  stripped. Short names for all five categories map to
+  the same oracle as the exact display names. No oracle
+  behaviour changes otherwise.
+- Version bumped to 0.5.9 in pyproject.toml, __init__.py,
+  and server.json (both fields). This is the first release
+  that ships the short 81-line README on PyPI: the 0.5.8
+  PyPI page still showed the old long README.
+- Verification: full unit suite, Aeon-exact re-audit at $0,
+  live re-test from the local wheel under a $0.50 cap,
+  then release via Trusted Publishing and registry publish.
+  Results recorded in AUDIT-2026-11-12-v059.md and the
+  v0.5.9 push record, workspace only.

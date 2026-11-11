@@ -202,13 +202,23 @@ def infer_harness_module(code=None, repo_path=None, category=None,
 ORACLE_CATEGORIES = ("sqli", "xss", "ssrf", "path_traversal", "host_key")
 
 # Finding check strings, as triage returns them, mapped to oracle
-# categories. Anything else has no oracle.
+# categories. Anything else has no oracle. Keys are normalized:
+# lowercased, extra spaces collapsed, trailing parenthetical
+# suffixes (for example "(SSRF)", "(XSS)") stripped, so a short
+# check name maps to the same oracle as the exact display name.
 _CHECK_TO_CATEGORY = {
-    "SQL injection": "sqli",
-    "Cross-site scripting (XSS)": "xss",
-    "Server-side request forgery (SSRF)": "ssrf",
-    "Path traversal": "path_traversal",
+    "sql injection": "sqli",
+    "cross-site scripting": "xss",
+    "server-side request forgery": "ssrf",
+    "path traversal": "path_traversal",
 }
+
+
+def _normalize_check(check):
+    """Normalize a check string for oracle lookup."""
+    text = str(check).strip().lower()
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def category_for_check(check):
@@ -220,8 +230,9 @@ def category_for_check(check):
     if not check:
         return None
     text = str(check)
-    if text in _CHECK_TO_CATEGORY:
-        return _CHECK_TO_CATEGORY[text]
+    normalized = _normalize_check(text)
+    if normalized in _CHECK_TO_CATEGORY:
+        return _CHECK_TO_CATEGORY[normalized]
     lowered = text.lower()
     if "host key" in lowered or "hostkey" in lowered:
         return "host_key"
