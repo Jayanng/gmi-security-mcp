@@ -7,6 +7,33 @@ recorded in the sections below; the 0.0.1 to 0.3.0 entries at
 the end were moved here from the README changelog section in
 the 0.5.8 README rewrite, so no history is lost.
 
+## [0.5.10] - 2026-11-12
+
+### Fixed
+
+- explain_cve now retries a truncated OSV fetch. The OSV API
+  response truncates over this environment's egress proxy:
+  IncompleteRead on Log4Shell, 46-60 KB read of about 61.5 KB,
+  and on a 2.5 KB record through Hermes, so explain_cve
+  failed 4 of 4 attempts in the Hermes v0.5.8 test, 14 of 15
+  tools passing. fetch_advisory now retries a failed fetch
+  3 times with a short backoff (0.5s, then 1.0s), and
+  _default_fetch accepts a partial read only if the bytes
+  actually received parse as JSON. After all retries it
+  still fails honestly with found false and no invented data.
+  A 404 is never retried. New unit tests cover a truncated
+  response that succeeds on retry, a RuntimeError that
+  succeeds on retry, honest failure after all 3 retries,
+  and partial-read acceptance only when the JSON parses.
+
+### Changed
+
+- This fix was asked for as part of v0.5.9, but v0.5.9 was
+  already published to PyPI (tag ffdfa7b, 2026-11-11
+  23:20 UTC) before the Hermes failure was reported, and
+  PyPI refuses a second upload of the same version files,
+  so the fix ships as v0.5.10 instead. No other change.
+
 ## [0.5.9] - 2026-11-12
 
 ### Fixed

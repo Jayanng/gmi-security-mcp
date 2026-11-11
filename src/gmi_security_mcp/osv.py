@@ -19,6 +19,7 @@ fixed_version is None and that is reported, not guessed.
 import http.client
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -26,6 +27,14 @@ from . import cvss as cvss_mod
 
 OSV_API_BASE = "https://api.osv.dev/v1/vulns/"
 OSV_WEB_BASE = "https://osv.dev/vulnerability/"
+
+# OSV fetch retries. The OSV API response truncates over this
+# environment's egress proxy (measured 2026-11-11: IncompleteRead
+# on Log4Shell, 46-60 KB read of about 61.5 KB, and on a 2.5 KB
+# record through Hermes), so one attempt is not enough. Three
+# attempts with a short backoff, never inventing data.
+_OSV_FETCH_ATTEMPTS = 3
+_OSV_FETCH_BACKOFF_SECONDS = 0.5
 
 _ADVISORY_ID_RE = re.compile(
     r"^(CVE-\d{4}-\d{4,}|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}|OSV-\d{4}-\d+)$",
@@ -62,7 +71,20 @@ def _default_fetch(url, timeout=30):
     request.add_header("Accept", "application/json")
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
-            return resp.status, json.loads(resp.read().decode())
+            try:
+                raw = resp.read()
+            except http.client.IncompleteRead as err:
+                # A truncated read is accepted only if the bytes
+                # actually received parse as JSON. Otherwise it is
+                # a failed read, and the caller retries.
+                partial = err.partial or b""
+                try:
+                    return resp.status, json.loads(partial.decode())
+                except (ValueError, UnicodeDecodeError):
+                    raise RuntimeError(
+                        "OSV API request failed for %s: %s" % (url, err)
+                    )
+            return resp.status, json.loads(raw.decode())
     except urllib.error.HTTPError as err:
         if err.code == 404:
             return 404, None
@@ -95,7 +117,34 @@ def fetch_advisory(advisory_id, fetcher=None):
             "GHSA-xxxx-xxxx-xxxx, or OSV-YYYY-NNN)" % (advisory_id,)
         )
     fetch = fetcher or _default_fetch
-    status, data = fetch(OSV_API_BASE + normalised)
+    last_error = None
+    for attempt in range(1, _OSV_FETCH_ATTEMPTS + 1):
+        try:
+            status, data = fetch(OSV_API_BASE + normalised)
+            break
+        except (
+            RuntimeError,
+            http.client.IncompleteRead,
+            urllib.error.URLError,
+            OSError,
+            ValueError,
+        ) as err:
+            # A truncated or dropped OSV response is transient:
+            # retry with a short backoff. A 404 is not an error
+            # here, it returns (404, None) from the fetcher and
+            # never reaches this branch, so it is never retried.
+            last_error = err
+            if attempt == _OSV_FETCH_ATTEMPTS:
+                raise RuntimeError(
+                    "OSV API request failed for %s after %d attempts: %s"
+                    % (OSV_API_BASE + normalised, _OSV_FETCH_ATTEMPTS, err)
+                )
+            time.sleep(_OSV_FETCH_BACKOFF_SECONDS * attempt)
+    else:  # pragma: no cover - the loop always breaks or raises
+        raise RuntimeError(
+            "OSV API request failed for %s: %s"
+            % (OSV_API_BASE + normalised, last_error)
+        )
     if status == 404 or data is None:
         return None
     if not isinstance(data, dict) or data.get("id") is None:

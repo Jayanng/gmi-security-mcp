@@ -74,7 +74,7 @@ python3 -m venv .venv
 python3 -m pytest tests/ -q
 ```
 
-Unit tests need no key and no network. 317 tests pass. Live tests are separate and capped: $1.00 per full run, $5.00 total for the whole build.
+Unit tests need no key and no network. 322 tests pass. Live tests are separate and capped: $1.00 per full run, $5.00 total for the whole build.
 
 ## License
 

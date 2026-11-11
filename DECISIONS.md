@@ -1730,3 +1730,40 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   then release via Trusted Publishing and registry publish.
   Results recorded in AUDIT-2026-11-12-v059.md and the
   v0.5.9 push record, workspace only.
+
+## 34. v0.5.10 explain_cve OSV retry, 2026-11-12
+
+- Hermes v0.5.8 test, 14 of 15 tools passing: explain_cve
+  failed 4 of 4 attempts, all OSV IncompleteRead, found
+  false, no data. Log4Shell 3 times, 46-60 KB read of about
+  61.5 KB, and CVE-2024-53981 once, 2,376 bytes read, 153
+  more expected. A diagnostic direct MCP call outside
+  Hermes, same PyPI binary, failed the same way for
+  Log4Shell but succeeded for the small CVE, and a browser
+  fetch confirmed the Log4Shell OSV record exists. So
+  truncation is in the server's OSV fetch over this VM's
+  egress proxy, worse under Hermes spawn, not a Hermes bug
+  and not a missing advisory. The tool fails honestly and
+  invents nothing, but it does not work through Hermes in
+  this environment.
+- Fix: fetch_advisory retries a failed fetch 3 times with
+  a short backoff (0.5s, then 1.0s), and _default_fetch
+  accepts a partial read only if the bytes received parse
+  as JSON, otherwise it raises and the caller retries.
+  After all retries it still fails honestly. A 404 is
+  never retried. No other scope change.
+- Asked for as part of v0.5.9, but v0.5.9 was already
+  published to PyPI (tag ffdfa7b, 2026-11-11 23:20 UTC)
+  before the Hermes failure was reported, and PyPI refuses
+  a second upload of the same version files, so the fix
+  ships as v0.5.10 instead. The registry publish for
+  0.5.9 was still pending a user device flow at the time;
+  0.5.10 will need its own device flow after the user
+  authorizes, or the 0.5.9 publish can be skipped in
+  favour of 0.5.10.
+- Verification: full unit suite, Aeon-exact re-audit at $0,
+  live re-test explain_cve through Hermes and Muse,
+  Log4Shell must pass, under a $0.50 cap, then release via
+  Trusted Publishing and registry publish. Results
+  recorded in AUDIT-2026-11-12-v060.md and the v0.5.10
+  push record, workspace only.

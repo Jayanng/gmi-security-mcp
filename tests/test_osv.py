@@ -276,6 +276,77 @@ def test_fetch_incomplete_read_returns_runtime_error(monkeypatch):
         osv_mod._default_fetch("https://api.osv.dev/v1/vulns/CVE-2021-44228")
 
 
+def test_fetch_retries_truncated_response_then_succeeds(monkeypatch):
+    import http.client
+
+    calls = []
+
+    def _flaky(url, timeout=30):
+        calls.append(url)
+        if len(calls) < 3:
+            raise http.client.IncompleteRead(b"x" * 10, 5)
+        return 200, LOG4J_CVE
+
+    record = osv_mod.fetch_advisory("CVE-2021-44228", fetcher=_flaky)
+    assert record["id"] == "CVE-2021-44228"
+    assert len(calls) == 3
+
+
+def test_fetch_retries_runtime_error_then_succeeds():
+    calls = []
+
+    def _flaky(url, timeout=30):
+        calls.append(url)
+        if len(calls) < 2:
+            raise RuntimeError("OSV API request failed: boom")
+        return 200, LOG4J_CVE
+
+    record = osv_mod.fetch_advisory("CVE-2021-44228", fetcher=_flaky)
+    assert record["id"] == "CVE-2021-44228"
+    assert len(calls) == 2
+
+
+def test_fetch_still_fails_honestly_after_all_retries():
+    calls = []
+
+    def _failing(url, timeout=30):
+        calls.append(url)
+        raise RuntimeError("OSV API request failed: boom")
+
+    with pytest.raises(RuntimeError, match="after 3 attempts"):
+        osv_mod.fetch_advisory("CVE-2021-44228", fetcher=_failing)
+    assert len(calls) == 3
+    result = srv.explain_cve_impl("CVE-2021-44228", fetcher=_failing)
+    assert result["found"] is False
+    assert "boom" in result["error"]
+
+
+def test_default_fetch_accepts_partial_read_only_if_json_parses(monkeypatch):
+    import http.client
+    import urllib.request
+
+    payload = b'{"id": "CVE-2021-44228"}'
+
+    class _Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            raise http.client.IncompleteRead(payload, 5)
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _Resp())
+    status, data = osv_mod._default_fetch(
+        "https://api.osv.dev/v1/vulns/CVE-2021-44228"
+    )
+    assert status == 200
+    assert data["id"] == "CVE-2021-44228"
+
+
 def test_explain_cve_fetch_failure_returns_found_false():
     def _failing(url, timeout=30):
         raise RuntimeError("OSV API request failed for %s: boom" % url)
