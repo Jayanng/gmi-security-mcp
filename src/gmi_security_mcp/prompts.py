@@ -93,7 +93,9 @@ SYSTEM_ROLE = (
 # wrap_user_text. The model only writes the PoC; a deterministic
 # local oracle decides whether it reproduces the finding. The
 # generated PoC is untrusted code until reviewed, and it is only
-# run after the caller confirms it or passes run_poc true.
+# run after the caller confirms it with confirm_generated_poc
+# true, or supplies the reviewed PoC as poc in a later call.
+# run_poc true alone never runs a generated PoC.
 POC_PROMPT = (
     'You are a security code reviewer. Write a small proof-of-concept '
     'test for the finding below. The PoC must try to reproduce the '

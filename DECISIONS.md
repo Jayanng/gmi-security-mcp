@@ -1026,6 +1026,65 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   `python -m build`, `twine check` passed, fresh-venv
   install lists 15 tools.
 
+## 24. NV-1 fix, confirm flag for generated PoCs, v0.5.3, 2026-11-11
+
+- NV-1, from the internal audit of v0.5.2: when
+  `verify_finding` was called with `run_poc` true and no PoC
+  supplied, the tool generated the PoC from repo-derived
+  content and ran it on the host in the same call, with no
+  in-tool review round-trip. The review gate existed only in
+  the agent's choice to pass `run_poc` false first.
+- Decision, operator-chosen 2026-11-11: use what we use
+  here, so it runs on any user coding agent or workflow
+  without Docker. No Docker default, no Docker dependency
+  in this fix. The fix is an explicit confirm flag, in the
+  tool itself.
+- Flag name: `confirm_generated_poc`, default false, on
+  `verify_finding` and on `verify_impl`. Behaviour:
+  generated PoC plus `run_poc` true plus no confirmation
+  returns status `skipped`, the PoC in the `poc` field for
+  review, `poc_before.ran` false, nothing written or run.
+  The caller re-calls with the reviewed PoC supplied as
+  `poc` and `run_poc` true, or with `confirm_generated_poc`
+  true and `run_poc` true. A caller-supplied PoC runs with
+  `run_poc` true and no extra flag, because the caller
+  already reviewed it. A `test_command` that runs a PoC
+  file already in the repo is also caller-supplied, not
+  generated, so it needs no extra flag. The gate is checked
+  after PoC generation, so the generation cost is already
+  spent when the result returns skipped; that cost is shown
+  in `cost_usd` and `estimate_usd`, and no run cost is
+  added. Status stays in the existing schema
+  (`reproduced`, `not_reproduced`, `skipped`, `error`):
+  no new status was invented, so `skipped` is the
+  needs-review result.
+- Why not Docker: this Muse VM has no Docker, the
+  bug-bounty machine has Docker 29.8.2, and an MCP user on
+  Claude Code, Codex, Cursor, or a plain MCP client may
+  have none. A Docker-only default would refuse generated
+  PoC runs for those users. The existing Docker executor
+  stays as an option for users who have Docker; it is not
+  the gate, and it is not required.
+- Tests: 285 pass locally (282 in v0.5.2, 3 new, plus the
+  generated-run and prompt-injection tests updated to pass
+  `confirm_generated_poc` true). New tests cover the four
+  cases: generated without confirmation skipped and not
+  run, generated with confirmation reproduced, generated
+  reviewed and supplied later runs with no extra flag,
+  generated with confirmation that fails the oracle is
+  `not_reproduced`, not confirmed.
+- Internal audit of the changed code, same method as the
+  v0.5.2 audit, report workspace-only,
+  AUDIT-2026-11-11-nv1.md, never pushed: no
+  High, Medium, or Low open. $0.00 GMI spend, no live
+  model call.
+- Version 0.5.3 everywhere: pyproject.toml, __init__.py
+  __version__, server.json (package version and top-level
+  version), README, CHANGELOG.md. server.json re-validated
+  with mcp-publisher validate. Rebuilt with
+  `python -m build`, `twine check` passed, fresh-venv
+  install lists 15 tools.
+
 ## Open items
 
 - Registry publish (Phase 7): `server.json` prepared and
@@ -1038,7 +1097,9 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   a PoC with a bug (it unpacked None and exited 1 before the
   fallback ran). Model output, not server code; PoCs are
   reviewed before they run, by design. No server fix in 0.5.1
-  or 0.5.2.
+  or 0.5.2. NV-1, the generated PoC running on the host in
+  the same call without an in-tool review step, is fixed in
+  0.5.3 with `confirm_generated_poc`, section 24.
 - Dataset-50 sits at 47/50 live (S10, S11, S24 fail, all real
   triaged false_positive). S11 flips between runs. The
   presence-flaw clause (section 23) did not move Gemini 3.5

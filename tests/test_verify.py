@@ -643,11 +643,90 @@ def test_verify_mockllm_generated_poc_run_reproduced(tmp_path):
         repo_path=str(repo),
         stage1_model=CHEAP,
         run_poc=True,
+        confirm_generated_poc=True,
         chat_fn=_mockllm_chat(_poc_text("ssrf")),
         pricing=PRICING,
     )
     assert result["status"] == "reproduced", result
     assert result["confirmed"] is True
+
+
+def test_verify_mockllm_generated_poc_run_without_confirm_is_skipped(tmp_path):
+    """NV-1 gate: run_poc true alone never runs a generated PoC.
+
+    The PoC is generated (MockLLM, $0 live spend), returned for
+    review, and the result is skipped with poc_before ran False.
+    Nothing is written or run.
+    """
+    repo = _repo(tmp_path)
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        chat_fn=_mockllm_chat(_poc_text("ssrf")),
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped", result
+    assert result["confirmed"] is False
+    assert result["poc_before"]["ran"] is False
+    assert result["poc_before"]["exit_code"] is None
+    assert result["poc"] is not None
+    assert "ssrf_harness" in result["poc"]
+    assert "confirm_generated_poc" in (result["error"] or "")
+    assert result["model"] == CHEAP
+    assert result["cost_usd"] > 0
+
+
+def test_verify_mockllm_generated_poc_run_with_confirm_not_reproduced(tmp_path):
+    """A confirmed generated PoC that fails the oracle is
+    not_reproduced, never confirmed: the gate does not pass
+    anything, it only allows the run."""
+    repo = _repo(tmp_path)
+    safe_poc = (
+        "import json\n"
+        "print(json.dumps({\"nonce\": \"n1\","
+        " \"collector_received_nonce\": \"other\"}))\n"
+    )
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        confirm_generated_poc=True,
+        chat_fn=_mockllm_chat(safe_poc),
+        pricing=PRICING,
+    )
+    assert result["status"] == "not_reproduced", result
+    assert result["confirmed"] is False
+    assert result["poc_before"]["ran"] is True
+    assert result["poc_before"]["exit_code"] == 0
+
+
+def test_verify_mockllm_generated_poc_supplied_after_review_runs(tmp_path):
+    """The other NV-1 path: a generated PoC, reviewed, then
+    supplied as poc in a later call runs with run_poc true
+    and no extra flag, because the caller already reviewed it."""
+    repo = _repo(tmp_path)
+    first = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=True,
+        chat_fn=_mockllm_chat(_poc_text("ssrf")),
+        pricing=PRICING,
+    )
+    assert first["status"] == "skipped"
+    assert first["poc"] is not None
+    second = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        poc=first["poc"],
+        run_poc=True,
+        pricing=PRICING,
+    )
+    assert second["status"] == "reproduced", second
+    assert second["confirmed"] is True
 
 
 def test_verify_mockllm_unparsed_poc_is_error(tmp_path):
@@ -1060,6 +1139,7 @@ def test_verify_prompt_injection_mockllm(tmp_path):
         repo_path=str(repo),
         stage1_model=CHEAP,
         run_poc=True,
+        confirm_generated_poc=True,
         chat_fn=_mockllm_chat(_poc_text("xss")),
         pricing=PRICING,
     )

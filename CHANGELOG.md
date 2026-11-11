@@ -6,6 +6,36 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.3] - 2026-11-11
+
+### Fixed
+
+- NV-1, from the internal audit of v0.5.2: `verify_finding`
+  no longer runs a model-generated PoC on the host in the
+  same call that generated it unless the caller confirms it.
+  New flag `confirm_generated_poc` (default false). With
+  `run_poc` true and no confirmation, a generated PoC is
+  returned for review with status `skipped` and nothing
+  runs. Re-call with the reviewed PoC supplied as `poc`, or
+  with `confirm_generated_poc` true, to run it. A
+  caller-supplied PoC runs with `run_poc` true and no extra
+  flag. No Docker is needed: the gate works on any coding
+  agent or workflow, with only the Python runtime the server
+  already needs. See DECISIONS.md section 24.
+
+### Tests, v0.5.3 fix pass
+
+- 285 unit tests pass, 3 new: generated PoC without
+  confirmation is skipped and not run, generated PoC with
+  confirmation reproduces, generated PoC reviewed and
+  supplied in a later call runs with no extra flag, plus a
+  generated PoC with confirmation that fails the oracle is
+  `not_reproduced`, not confirmed.
+- Internal audit, same method as the v0.5.2 audit, report
+  workspace-only, AUDIT-2026-11-11-nv1.md, never
+  pushed: no High, Medium, or Low open. $0.00 GMI spend,
+  no live model call.
+
 ## [0.5.2] - 2026-11-10
 
 ### Fixed

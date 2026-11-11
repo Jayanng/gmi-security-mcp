@@ -1899,6 +1899,7 @@ def verify_impl(
     stage1_model=None,
     spend_cap_usd=cost_mod.DEFAULT_SPEND_CAP_USD,
     run_poc=False,
+    confirm_generated_poc=False,
     regression_check=False,
     executor="host",
     docker_available=None,
@@ -1919,7 +1920,19 @@ def verify_impl(
     that ran and did not reproduce is not_reproduced, and a PoC
     that timed out or could not run is error. A generated PoC is
     untrusted code until reviewed: it is returned for review and
-    only runs when run_poc is true. When db_path is given, a
+    only runs when run_poc is true. A generated PoC is untrusted
+    code until reviewed: it is returned for review and only runs
+    when run_poc is true AND confirm_generated_poc is true. A
+    caller-supplied PoC is the caller's own text, already
+    reviewed by the caller, so it runs when run_poc is true
+    with no extra flag. Without confirm_generated_poc, a
+    generated PoC is never run on the host in the same call
+    that generated it: the result is skipped, the PoC is
+    returned in the poc field for review, and the caller
+    re-calls with the PoC supplied as poc, or with
+    confirm_generated_poc true. No Docker is needed for this
+    gate: it works on any coding agent or workflow, with only
+    the Python runtime the server already needs. When db_path is given, a
     finding_id is resolved from the findings store, the
     verification result is stored there, and a reproduced result
     moves the finding to verified; db_path None stores nothing.
@@ -2153,6 +2166,7 @@ def verify_impl(
 
     # PoC generation, only when no PoC was supplied.
     poc_text = poc
+    poc_generated = False
     poc_language = "python"
     model_used = None
     usage = {}
@@ -2265,6 +2279,7 @@ def verify_impl(
             )
         poc_text = parsed_poc["poc"]
         poc_language = parsed_poc["language"]
+        poc_generated = True
     elif poc_text is not None:
         poc_text = str(poc_text)
     # When test_command is given and no poc was supplied, there is
@@ -2303,6 +2318,50 @@ def verify_impl(
                     "name": "poc_run",
                     "passed": False,
                     "detail": "PoC was not run",
+                }
+            ],
+            artifacts=artifacts,
+            finding_id=finding_id,
+            model=model_used,
+            usage=usage,
+            cost_usd=cost_usd,
+            estimate_usd=estimate_usd,
+            regression_check=bool(regression_check),
+            warning=(
+                "Generated PoC is untrusted code until reviewed. "
+                "It was not run."
+            ),
+            poc=poc_text,
+        ))
+
+    # NV-1 gate, v0.5.3: a generated PoC is never run on the host
+    # in the same call that generated it unless the caller
+    # confirms it. run_poc true alone is not confirmation for
+    # model-generated code: the caller must also pass
+    # confirm_generated_poc true, after reviewing the PoC, or
+    # supply the reviewed PoC as poc in a later call. A
+    # caller-supplied PoC is exempt: it is the caller's own
+    # text, already reviewed. The result is skipped, the PoC
+    # is returned for review, and nothing is written or run.
+    if run_poc and poc_generated and not confirm_generated_poc:
+        return _record_verification(_verify_result(
+            status="skipped",
+            error=(
+                "Generated PoC was not run: it needs review. "
+                "Review the PoC in the poc field, then call "
+                "verify_finding again with the same PoC supplied "
+                "as poc, or with confirm_generated_poc true and "
+                "run_poc true to run the generated PoC. A PoC "
+                "that was not run is never reproduced."
+            ),
+            assertions=[
+                {
+                    "name": "poc_run",
+                    "passed": False,
+                    "detail": (
+                        "Generated PoC was not run: needs review, "
+                        "confirm_generated_poc was not true"
+                    ),
                 }
             ],
             artifacts=artifacts,
@@ -2570,6 +2629,7 @@ def verify_finding(
     stage1_model: str | None = None,
     spend_cap_usd: float = 1.00,
     run_poc: bool = False,
+    confirm_generated_poc: bool = False,
     regression_check: bool = False,
     executor: str = "host",
     fix_candidate: dict | None = None,
@@ -2583,7 +2643,11 @@ def verify_finding(
     GMI only writes the PoC, when poc is null; the local oracle
     decides. code is the audited code and harness description
     sent with the finding when a PoC is generated. A generated PoC is returned for review and only runs
-    when run_poc is true. A false_positive finding is refused
+    when run_poc is true AND confirm_generated_poc is true:
+    run_poc alone never runs model-generated code on the host
+    in the same call that generated it. A caller-supplied PoC
+    runs when run_poc is true, with no extra flag, because the
+    caller already reviewed it. A false_positive finding is refused
     unless regression_check is true, and then the result is
     labelled regression, not confirmation. Categories without an
     oracle return skipped with "no oracle for this category".
@@ -2621,6 +2685,7 @@ def verify_finding(
         stage1_model=stage1_model,
         spend_cap_usd=spend_cap_usd,
         run_poc=run_poc,
+        confirm_generated_poc=confirm_generated_poc,
         regression_check=regression_check,
         executor=executor,
         fix_candidate=fix_candidate,

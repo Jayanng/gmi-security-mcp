@@ -12,6 +12,20 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.3
+
+- `verify_finding` now refuses to run a model-generated PoC
+  on the host in the same call that generated it, unless the
+  caller confirms it. A generated PoC is untrusted code until
+  reviewed: with `run_poc` true and no `confirm_generated_poc`,
+  the result is `skipped`, the PoC is returned in the `poc`
+  field for review, and nothing runs. Re-call with the
+  reviewed PoC supplied as `poc`, or with
+  `confirm_generated_poc` true, to run it. A caller-supplied
+  PoC runs with `run_poc` true and no extra flag. No Docker
+  is needed: the gate works on any coding agent or workflow.
+  See DECISIONS.md section 24.
+
 ## What is new in 0.5.2
 
 - `count_field_occurrences` and `read_snippet` now refuse
@@ -255,7 +269,7 @@ works until it is tested on a machine with Cursor. Project file
 | `explain_cve` | Explain a CVE, GHSA, or OSV id from its OSV advisory, with citations. When no advisory with that exact id exists, returns found false and invents nothing. When a model is named, GMI writes one plain-language paragraph from the retrieved advisory only. | Only when a model is named |
 | `draft_private_disclosure` | Draft a private disclosure from a confirmed real finding, in the GitHub Security Lab report template. Returns Markdown, writes it only when the caller gives a path. Never sent, never opened as a PR, never forked, never pushed, never emailed. `sent` is always false. | No |
 | `estimate_cost` | Estimate a run with no API call and no spend. A model with no flat per-token pricing returns `priced: false` and null costs. | No |
-| `verify_finding` | Verify one finding with a deterministic oracle and a runnable PoC. A model verdict alone never sets confirmation: `confirmed` is true only when the oracle reproduces the finding. Oracles exist for 5 categories: SQL injection, XSS, SSRF, path traversal, missing SSH host key verification. Other categories return `skipped`. A generated PoC is untrusted code until reviewed: it is returned for review and only runs when `run_poc` is true. | Only to generate the PoC |
+| `verify_finding` | Verify one finding with a deterministic oracle and a runnable PoC. A model verdict alone never sets confirmation: `confirmed` is true only when the oracle reproduces the finding. Oracles exist for 5 categories: SQL injection, XSS, SSRF, path traversal, missing SSH host key verification. Other categories return `skipped`. A generated PoC is untrusted code until reviewed: it is returned for review and only runs when `run_poc` and `confirm_generated_poc` are both true; without confirmation the result is `skipped` and nothing runs. A caller-supplied PoC runs when `run_poc` is true. No Docker is needed. | Only to generate the PoC |
 | `list_findings` | List stored findings, summaries only, no code. Limit default 20, max 100, opaque offset cursor. | No |
 | `get_finding` | One stored finding in full: code, evidence, verdict history, pipeline events, verification results, business impact, matching memories. | No |
 | `update_finding` | Update a stored finding. A reason is required. Refuses status skips. | No |
@@ -346,7 +360,16 @@ succeeded with a wrong, unverified host key. Other categories
 return `skipped`, with the reason named.
 
 A generated PoC is untrusted code until reviewed. It is
-returned for review and only runs when `run_poc` is true. PoCs
+returned for review and only runs when `run_poc` is true AND
+`confirm_generated_poc` is true. With `run_poc` true and no
+confirmation, the result is `skipped`, the PoC is returned in
+the `poc` field, and nothing runs: re-call with the reviewed
+PoC supplied as `poc`, or with `confirm_generated_poc` true,
+to run it. A caller-supplied PoC is the caller's own text,
+already reviewed, so it runs when `run_poc` is true with no
+extra flag. No Docker is needed for this gate: it works on any
+coding agent or workflow, with only the Python runtime the
+server already needs. PoCs
 run as list-form commands, no shell, with a 60 second timeout,
 a scrubbed environment, and a working directory under the repo.
 A Docker executor is available when Docker is installed; when

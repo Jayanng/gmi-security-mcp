@@ -505,6 +505,15 @@ exactly, so the same evidence reproduced. The warning is real:
 the PoC ran on the host. Review a generated PoC before running
 it, and use the Docker executor when Docker is installed.
 
+A generated PoC is different from a supplied one. If no PoC
+is supplied, the tool generates one and, with `run_poc` true
+but no `confirm_generated_poc`, returns it for review with
+status `skipped` and runs nothing. To run it, re-call with
+the reviewed PoC supplied as `poc` and `run_poc` true, or
+with `confirm_generated_poc` true and `run_poc` true. No
+Docker is needed for this: the confirm gate works on any
+coding agent or workflow.
+
 One honest note: in the v0.5.0 live repo_scan the same finding
 triaged false_positive at confidence 0.9, so `verify_finding`
 refused a confirmation run for it by design. The oracle ran
