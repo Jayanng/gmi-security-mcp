@@ -108,3 +108,28 @@ def test_redact_clean_text_unchanged():
     text, count, hits = r.redact("SELECT * FROM users WHERE id = ?")
     assert text == "SELECT * FROM users WHERE id = ?"
     assert count == 0 and hits == []
+
+
+def test_redact_bearer_token():
+    """v0.5.4: Authorization Bearer tokens are redacted.
+
+    Deterministic proof before the fix: redact() returned
+    0 hits for 'Authorization: Bearer <token>', so a real
+    bearer token in audited code would have been sent to
+    the model. The scheme word stays, the token is replaced.
+    """
+    text, count, hits = r.redact(
+        'headers = {"Authorization": "Bearer abcdef1234567890XYZ"}'
+    )
+    assert count == 1
+    assert "bearer_token" in hits
+    assert "abcdef1234567890XYZ" not in text
+    assert "Bearer [REDACTED]" in text
+
+
+def test_redact_bearer_short_value_not_flagged():
+    # A short Bearer value is a placeholder or word, not a
+    # credential: do not redact it and break the finding text.
+    text, count, _hits = r.redact("Bearer short")
+    assert count == 0
+    assert text == "Bearer short"

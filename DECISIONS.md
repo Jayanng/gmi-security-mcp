@@ -1112,3 +1112,51 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   missing-verification clause are the evidence. Re-run it
   live before claiming the 0.5.2 repo_scan result, if a
   fresh live number is needed.
+
+## 25. v0.5.4: harness module named in PoC generation, Bearer redaction, 2026-11-11
+
+- SSRF root cause, from the v0.5.3 live agent-side test: the
+  PoC generation prompt said "import local harness modules by
+  name" but never gave a name. The model invented "harness",
+  3/3 live SSRF generations, PoC crashed exit 1 before any
+  JSON evidence. The fixture PoC ("import ssrf_harness")
+  reproduced, so the oracle and harness were fine.
+- Fix: verify.infer_harness_module, explicit name wins, then
+  a name in the code text, then the category module only when
+  a file with that stem exists in the repo (root first, then
+  a bounded walk, 500 files). verify_impl puts "Harness
+  module: ssrf_harness" and "Import it exactly as: import
+  ssrf_harness" into the prompt, plus "Do not invent, shorten,
+  or rename it". POC_PROMPT carries the same rule. New
+  optional harness_module argument on verify_finding and
+  verify_impl. When nothing is found, the prompt says "No
+  harness module name is given" and forbids importing one.
+  Same mapping for all five oracle categories.
+- Bearer redaction, confirmed by a deterministic check, no
+  live call: redact() returned 0 hits for "Authorization:
+  Bearer <token>" before this fix. A bearer token in audited
+  code would have been sent to the model. Now Bearer tokens
+  of 10+ characters are replaced with [REDACTED], scheme word
+  kept. Short values left alone, they are placeholders.
+- Live-test follow-up, same pass: 2/2 XSS generations wrote a
+  payload f-string with a lone `}`, a Python syntax error, so
+  the PoC exited 1 with no evidence and the run errored. The
+  harness name was right both times (xss_harness), the oracle
+  and harness are proven by the fixture PoC, and the server
+  correctly refused to judge a run with no evidence. Fix is
+  one prompt rule in POC_PROMPT: build payload strings with
+  plain concatenation, never an f-string with a literal { or }.
+  Unit test pins the rule in the prompt text.
+- Residuals checked, not fixed: update_finding can set
+  verified without a reproduced verification, only confirmed
+  is gated. That is a Phase A2 design decision: verified is
+  an operator-set status, the operator is trusted, privilege
+  equal to yield, no deterministic PoC proves it is a flaw.
+  confirm_generated_poc accepts any truthy value, same as
+  every other bool flag in the codebase. Generation cost is
+  already spent when the NV-1 gate returns skipped, inherent
+  to generating before reviewing. Production deps have no
+  lockfile, so osv-scanner does not cover them; checked by
+  direct OSV query each audit, clean.
+- .gitignore gap from the v0.5.3 live test: adds live-*.json,
+  live-*.md, X-THREAD-DRAFT-*.md. Goes out in the v0.5.4 push.

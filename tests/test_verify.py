@@ -1176,3 +1176,86 @@ def test_list_tools_includes_verify_finding():
     ):
         assert name in tools
     assert len(tools) == 15
+
+
+def test_infer_harness_module_all_categories(tmp_path):
+    """v0.5.4: harness module is taken from the repo, never invented."""
+    repo = _repo(tmp_path)
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="sqli") == "sqli_harness"
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="xss") == "xss_harness"
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="ssrf") == "ssrf_harness"
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="path_traversal") == "traversal_harness"
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="host_key") == "hostkey_harness"
+
+
+def test_infer_harness_module_none_when_no_file(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="ssrf") is None
+    assert verify_mod.infer_harness_module(repo_path=str(repo), category="ssrf", explicit="bad-name!") is None
+    assert verify_mod.infer_harness_module(code="import ssrf_harness", category="ssrf") == "ssrf_harness"
+
+
+def test_verify_generation_prompt_names_harness_module(tmp_path):
+    """v0.5.4: the generation prompt names ssrf_harness exactly.
+
+    Regression test for the v0.5.3 live failure: 3/3 live SSRF
+    generations wrote 'from harness import ...' because the
+    prompt never gave a module name.
+    """
+    repo = _repo(tmp_path)
+    seen = {}
+
+    def _capture(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        seen["system"] = system_content
+        return _mockllm_chat(_poc_text("ssrf"))(model, system_content, user_content, max_tokens)
+
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=False,
+        chat_fn=_capture,
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped", result
+    assert "Harness module: ssrf_harness" in seen["user"]
+    assert "import ssrf_harness" in seen["user"]
+    assert "Do not invent" in seen["user"] or "do not invent" in seen["system"].lower()
+    assert "from harness import" not in seen["user"]
+
+
+def test_verify_generation_prompt_no_harness_when_absent(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    seen = {}
+
+    def _capture(model, system_content, user_content, max_tokens=2500):
+        seen["user"] = user_content
+        return _mockllm_chat(_poc_text("ssrf"))(model, system_content, user_content, max_tokens)
+
+    result = srv.verify_impl(
+        finding=_finding("ssrf"),
+        repo_path=str(repo),
+        stage1_model=CHEAP,
+        run_poc=False,
+        chat_fn=_capture,
+        pricing=PRICING,
+    )
+    assert result["status"] == "skipped", result
+    assert "No harness module name is given" in seen["user"]
+
+
+def test_verify_generation_prompt_no_fstring_braces():
+    """v0.5.4: the PoC prompt bans literal braces in f-strings.
+
+    Regression test for the v0.5.4 live failure: 2/2 live XSS
+    generations wrote a payload f-string containing a literal
+    '"};}' sequence, which is a Python syntax error, so the PoC
+    exited 1 with no evidence and the run errored.
+    """
+    from gmi_security_mcp import prompts as prompts_mod
+
+    assert "f-string" in prompts_mod.POC_PROMPT
+    assert "plain string concatenation" in prompts_mod.POC_PROMPT

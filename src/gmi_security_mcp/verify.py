@@ -78,6 +78,63 @@ SQL_ERROR_SIGNATURES = (
 # Linux /etc/passwd signature: root entry, uid 0, gid 0.
 PASSWD_SIGNATURE_RE = re.compile(r"^root:[^:\n]*:0:0:", re.M)
 
+# Harness module per oracle category, v0.5.4. The PoC generation
+# prompt used to say "import local harness modules by name" but
+# never gave the model a name, so live generations invented
+# "harness" and crashed with ModuleNotFoundError (3/3 SSRF
+# generations in the v0.5.3 live test). The module name is now
+# given exactly, taken from the repo when it is there, never
+# invented. Names are the real fixture / harness module names.
+HARNESS_MODULES = {
+    "sqli": "sqli_harness",
+    "xss": "xss_harness",
+    "ssrf": "ssrf_harness",
+    "path_traversal": "traversal_harness",
+    "host_key": "hostkey_harness",
+}
+
+
+def infer_harness_module(code=None, repo_path=None, category=None,
+                         explicit=None):
+    """Harness module name for a PoC generation, or None.
+
+    Order: an explicit valid name wins; then a name already in
+    the code text; then the category module, but only when a
+    file with that stem exists in the repo. Never invent a
+    name: when nothing is found, return None and the prompt
+    says so plainly.
+    """
+    import re as _re
+    if explicit:
+        name = str(explicit).strip()
+        if _re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            return name
+    names = list(HARNESS_MODULES.values())
+    if code:
+        text = str(code)
+        for name in names:
+            if _re.search(r"\b" + _re.escape(name) + r"\b", text):
+                return name
+    if category in HARNESS_MODULES and repo_path is not None:
+        try:
+            root = Path(repo_path)
+            wanted = HARNESS_MODULES[category] + ".py"
+            # Root first (the live-test layout), then a bounded
+            # walk so a large repo cannot make this slow.
+            if (root / wanted).is_file():
+                return HARNESS_MODULES[category]
+            count = 0
+            for path in root.rglob("*.py"):
+                count += 1
+                if count > 500:
+                    break
+                if path.name == wanted:
+                    return HARNESS_MODULES[category]
+        except (OSError, RuntimeError, ValueError):
+            return None
+    return None
+
+
 # Categories with an oracle in v0.5.0.
 ORACLE_CATEGORIES = ("sqli", "xss", "ssrf", "path_traversal", "host_key")
 

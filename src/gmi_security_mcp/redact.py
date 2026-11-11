@@ -16,6 +16,18 @@ _PATTERNS = [
     ("slack_token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}")),
     ("openai_key", re.compile(r"sk-[A-Za-z0-9]{20,}")),
     ("private_key_block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    # v0.5.4: Bearer tokens were not redacted. The assigned_secret
+    # pattern needs a key name like api_key or password, so
+    # "Authorization: Bearer <token>" passed through with 0 hits
+    # in a deterministic check, and a real bearer token in audited
+    # code would have been sent to the model. Bearer tokens are
+    # credentials, redact the token, keep the scheme word.
+    (
+        "bearer_token",
+        re.compile(
+            r"(?i)(Bearer\s+)([A-Za-z0-9\-._~+/=]{10,})"
+        ),
+    ),
     (
         "assigned_secret",
         re.compile(
@@ -40,7 +52,15 @@ def redact(text):
     count = 0
     hits = []
     for name, pattern in _PATTERNS:
-        if name == "assigned_secret":
+        if name == "bearer_token":
+            def _replace_bearer(match):
+                return match.group(1) + _REDACTED
+
+            result, made = pattern.subn(_replace_bearer, result)
+            if made:
+                count += made
+                hits.append(name)
+        elif name == "assigned_secret":
             def _replace(match):
                 return match.group(1) + match.group(2) + _REDACTED
 

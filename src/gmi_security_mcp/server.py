@@ -1910,6 +1910,7 @@ def verify_impl(
     poc_timeout=verify_mod.POC_TIMEOUT_SECONDS,
     code=None,
     db_path=None,
+    harness_module=None,
 ):
     """Verify one finding with a deterministic oracle, PoV-is-truth.
 
@@ -2195,6 +2196,22 @@ def verify_impl(
                 verify_mod.evidence_contract(category),
             )
         )
+        harness_name = verify_mod.infer_harness_module(
+            code=code, repo_path=root, category=category,
+            explicit=harness_module,
+        )
+        if harness_name:
+            prompt_text += (
+                "\nHarness module: %s\nImport it exactly as: "
+                "import %s\nUse only this exact module name. Do "
+                "not invent, shorten, or rename it.\n" % (harness_name, harness_name)
+            )
+        else:
+            prompt_text += (
+                "\nNo harness module name is given. Do not import "
+                "a harness module you were not given; write the "
+                "PoC using only the code shown.\n"
+            )
         if code:
             prompt_text += "\nCode:\n%s\n" % str(code)
         redacted_text, redaction_count, _hits = redact_mod.redact(prompt_text)
@@ -2636,6 +2653,7 @@ def verify_finding(
     max_tokens: int = 2500,
     code: str | None = None,
     db_path: str | None = None,
+    harness_module: str | None = None,
 ) -> str:
     """Verify one finding with a deterministic oracle, PoV-is-truth.
 
@@ -2692,6 +2710,7 @@ def verify_finding(
         max_tokens=max_tokens,
         code=code,
         db_path=path,
+        harness_module=harness_module,
     )
     return json.dumps(result, indent=2)
 

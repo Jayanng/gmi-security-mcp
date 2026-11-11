@@ -6,6 +6,42 @@ adheres to Semantic Versioning. Entries from 0.4.0 onward are
 recorded here; earlier history is in the README changelog
 section.
 
+## [0.5.4] - 2026-11-11
+
+### Fixed
+
+- SSRF PoC generation root cause: the generation prompt told
+  the model to import local harness modules by name but never
+  gave it a name, so live generations invented "harness" and
+  crashed, 3/3 in the v0.5.3 live test. verify_impl now
+  infers the harness module from the repo and names it
+  exactly in the prompt, for all five oracle categories
+  (sqli, xss, ssrf, path traversal, host key), with an
+  optional harness_module argument to override it. When no
+  harness module is found, the prompt says so and forbids
+  importing one. See DECISIONS.md section 25.
+- Bearer token redaction: redact() returned 0 hits for
+  "Authorization: Bearer <token>" before this fix. Bearer
+  tokens of 10 or more characters are now replaced with
+  [REDACTED]. Deterministic proof, no live call needed.
+- PoC generation prompt now bans literal braces inside
+  f-strings: the v0.5.4 live test showed 2/2 XSS generations
+  writing a payload f-string with a lone `}`, a Python syntax
+  error, so the PoC exited 1 with no evidence. Payload
+  strings must use plain concatenation. See DECISIONS.md
+  section 25.
+
+### Tests, v0.5.4 fix pass
+
+- 292 unit tests pass, 0 failed, locally. New: harness module
+  inference for all five categories, generation prompt names
+  ssrf_harness exactly, generation prompt says no harness
+  module when none is found, generation prompt bans literal
+  braces in f-strings, Bearer redaction, short Bearer
+  values untouched.
+- Live iterative test of all 15 tools and an internal
+  re-audit to follow in this pass, $1.00 cap.
+
 ## [0.5.3] - 2026-11-11
 
 ### Fixed

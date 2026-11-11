@@ -12,6 +12,33 @@ reply is no verdict, never clean.
 
 This server shares triage logic with an earlier, separately submitted product.
 
+## What is new in 0.5.4
+
+- `verify_finding` PoC generation now names the harness module
+  exactly. The prompt used to say "import local harness modules
+  by name" but never gave a name, so live generations invented
+  "harness" and crashed with ModuleNotFoundError, 3/3 SSRF
+  generations in the v0.5.3 live test. The server now infers
+  the module from the repo, for example ssrf_harness, and puts
+  "Harness module: ssrf_harness" plus "Import it exactly as:
+  import ssrf_harness" into the prompt, with a rule not to
+  invent, shorten, or rename it. A new optional
+  `harness_module` argument overrides it. When no harness
+  module is found, the prompt says so and the PoC must not
+  import one. See DECISIONS.md section 25.
+- Secret redaction now covers `Authorization: Bearer` tokens.
+  A deterministic check showed redact() returned 0 hits for
+  a Bearer token before this fix, so a real bearer token in
+  audited code would have been sent to the model. The token
+  is now replaced with [REDACTED], the scheme word stays.
+  Short Bearer values under 10 characters are left alone,
+  they are placeholders, not credentials.
+- PoC generation now tells the model to build payload strings
+  with plain concatenation, never an f-string with a literal
+  `{` or `}`. The v0.5.4 live test showed 2/2 XSS generations
+  writing `"};}` inside an f-string, a Python syntax error,
+  so the PoC exited 1 with no evidence.
+
 ## What is new in 0.5.3
 
 - `verify_finding` now refuses to run a model-generated PoC
