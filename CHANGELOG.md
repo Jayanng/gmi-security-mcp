@@ -3,10 +3,19 @@
 All notable changes to gmi-security-mcp are documented here.
 The format is based on Keep a Changelog, and the project
 adheres to Semantic Versioning. Entries from 0.4.0 onward are
-recorded here; earlier history is in the README changelog
-section.
+recorded in the sections below; the 0.0.1 to 0.3.0 entries at
+the end were moved here from the README changelog section in
+the 0.5.8 README rewrite, so no history is lost.
 
 ## [Unreleased]
+
+### Changed
+
+- README rewritten: 975 lines to 81, short and sharp. The
+  detail moved to the reference appendix at the end of
+  TUTORIAL.md, and the 0.0.1 to 0.3.0 changelog headlines
+  moved to the end of this file. No facts deleted, no version
+  bump, no new release for this change.
 
 ### Added
 
@@ -579,3 +588,32 @@ section.
 - Registry publish not done yet: the PyPI release is a
   precondition and no PyPI credential was available to this
   build. See DECISIONS.md section 17.
+
+## [0.3.0] - 2026-11-10
+
+### Added
+
+- Phases 4 and 5: disclosure drafting, hardening and privacy
+  fixes, redaction note to the model, 12 examples re-run at 9
+  and 10 of 12.
+
+## [0.2.0] - 2026-11-10
+
+### Added
+
+- Phases 2 and 3: repo_scan with two-stage triage,
+  check_osv_advisory, explain_cve, live repo tests.
+
+## [0.1.0] - 2026-11-10
+
+### Added
+
+- Phase 1: core server, triage_semgrep_finding,
+  estimate_cost, 12 examples live at 9 of 12.
+
+## [0.0.1] - 2026-11-10
+
+### Added
+
+- Phase 0: repo, SDK 2.3.0 verified, decisions recorded,
+  pricing copied from the audit tool.

@@ -1684,3 +1684,25 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   high 1.0, triage FP false_positive low 1.0, repo_scan 3
   findings with 1 custom host-key finding, verify supplied PoC
   reproduced confirmed True.
+
+## 32. README rewrite on the v0.5.8 line, 2026-11-11
+
+- User asked for the README to be short, sharp, and
+  professional: it was 975 lines. Rewritten to 81 lines:
+  title, one-line description, install from PyPI, one config
+  example, a compact 15-tool table, cost and safety in one
+  paragraph, links to the full docs.
+- Nothing deleted. The long detail moved to the reference
+  appendix at the end of TUTORIAL.md, and the 0.0.1 to 0.3.0
+  changelog headlines moved to the end of CHANGELOG.md. The
+  mcp-name marker stays on line 3 of README.md, for registry
+  ownership proof. No dataset scores and no Aeon mention in
+  the new README.
+- No version bump, no new release for this change. It lands
+  on Master after the v0.5.8 release (commit ee2757b, already
+  published to PyPI and the registry), and ships in the wheel
+  with the next release. Re-cutting 0.5.8 is not possible:
+  PyPI refuses a second upload of the same version files.
+- TUTORIAL.md section 1 install updated to the PyPI form,
+  and the section 9 pointer to the Limitations section now
+  points at the appendix in the same file.
