@@ -1767,3 +1767,73 @@ new API surface. The MCP tool surface is unchanged: 15 tools.
   Trusted Publishing and registry publish. Results
   recorded in AUDIT-2026-11-12-v060.md and the v0.5.10
   push record, workspace only.
+
+## 35. v0.5.11 OSV fetch root cause, 2026-11-12
+
+- User instruction: fix the OSV fetch properly, and at the
+  end no issues left. Any other problem found in the code
+  during this pass is fixed in this same release, not
+  parked.
+- Root cause, measured live against CVE-2021-44228
+  (61,567 bytes) from this environment's egress: the
+  truncation follows the Connection: close request header.
+  urllib.request forces that header, CPython issue 12849
+  documents that it cannot be overridden and that a server
+  truncating on it was the reporter's exact symptom, with
+  http.client as the suggested route because it does not
+  auto-inject the header. Raw trials: close requests lost
+  the tail in most attempts, no-Connection and keep-alive
+  requests returned the full body 20 of 20, curl 30 of 30,
+  urllib3 20 of 20.
+- Ruled out with live numbers: gzip, the OSV server ignores
+  Accept-Encoding and returns the plain body with no
+  Content-Encoding. Range resume, the server ignores Range
+  and returns 200 with the full body and no Content-Range.
+  Chunked reading with urllib still truncated and could
+  end silently short, so reads are validated against the
+  Content-Length framing http.client provides.
+- Fix: _default_fetch uses http.client.HTTPSConnection
+  directly, no Connection header, Accept-Encoding identity
+  with gzip decoding if a server ever sends it, host pinned
+  to api.osv.dev, proxy taken from the standard environment
+  discovery and used through a CONNECT tunnel with the
+  proxy credential kept in memory only. The urllib fetch
+  remains only as a fallback for a proxy reached over TLS.
+  fetch_advisory keeps its 3 attempt retry as a backstop,
+  honest failure and the 404 rule are unchanged. The body
+  read and the gzip decode are capped at 32 MiB, the
+  response limit OSV documents for HTTP/1.1, closing the
+  unbounded-read item the agentic review raised on this
+  diff.
+- Proof bar for this release: explain_cve Log4Shell first
+  call, 5 consecutive through Muse and 5 consecutive
+  through Hermes, 10 of 10, full unit suite 0 failed,
+  audit 0 confirmed, all 15 tools live in Muse and in
+  Hermes on the v0.5.11 wheel.
+
+## 36. Qwen refuses generated SSRF PoCs, 2026-11-12
+
+- Found in the v0.5.11 proof pass, not in the code: through
+  Hermes with stage1_model Qwen/Qwen3.8-Flash, verify_finding
+  with a generated SSRF PoC fails 3 of 3 times with HTTP 400
+  data_inspection_failed from the GMI backend, before any PoC
+  is written or run, cost $0.00, status error, confirmed
+  false, no verdict. The same finding, the same Hermes path,
+  and the same tool with stage1_model
+  google/gemini-3.5-flash-lite reproduces the generated SSRF
+  PoC first try, confirmed true. Muse with gemini also
+  reproduces it. A supplied SSRF PoC is unaffected, and the
+  test_command path runs a repo file without generation.
+- This is a provider-side content filter on Qwen PoC
+  generation, not a server defect, and no code change in
+  this release works around it: the tool already fails
+  honestly, it returns the provider error, says the finding
+  is NOT clean, and charges nothing. Rewording the prompt
+  to slip past the filter was not done. A caller that hits
+  it should supply a reviewed PoC, use test_command on a
+  repo file, or name a model whose backend accepts the
+  generation. Recorded here and in the tutorial so the
+  release does not claim 15 of 15 through Hermes with Qwen.
+  The Hermes 15-tool pass for v0.5.11 is 14 of 15 with
+  Qwen, 15 of 15 with gemini substituted for that one
+  generated-SSRF call.

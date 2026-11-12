@@ -517,6 +517,16 @@ with `confirm_generated_poc` true and `run_poc` true. No
 Docker is needed for this: the confirm gate works on any
 coding agent or workflow.
 
+One model note: in the v0.5.11 proof pass, Qwen/Qwen3.8-Flash
+refused to generate an SSRF PoC three times in a row, HTTP 400
+data_inspection_failed from the backend, before anything ran,
+cost $0.00, no verdict. The same call with
+google/gemini-3.5-flash-lite reproduced it first try. If a
+model refuses a generation, supply a reviewed PoC, use
+test_command on a repo file, or name another model. The tool
+reports the refusal plainly and never marks the finding clean
+on a failed generation.
+
 One honest note: in the v0.5.0 live repo_scan the same finding
 triaged false_positive at confidence 0.9, so `verify_finding`
 refused a confirmation run for it by design. The oracle ran

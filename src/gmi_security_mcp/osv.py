@@ -16,25 +16,48 @@ advisory lists only a last_affected version and no fixed event,
 fixed_version is None and that is reported, not guessed.
 """
 
+import base64
+import gzip
 import http.client
+import io
 import json
 import re
+import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from . import cvss as cvss_mod
 
 OSV_API_BASE = "https://api.osv.dev/v1/vulns/"
 OSV_WEB_BASE = "https://osv.dev/vulnerability/"
+_OSV_HOST = "api.osv.dev"
 
-# OSV fetch retries. The OSV API response truncates over this
-# environment's egress proxy (measured 2026-11-11: IncompleteRead
-# on Log4Shell, 46-60 KB read of about 61.5 KB, and on a 2.5 KB
-# record through Hermes), so one attempt is not enough. Three
-# attempts with a short backoff, never inventing data.
+# OSV fetch transport. The v0.5.10 retry change was not the root
+# fix. Root cause, measured 2026-11-12 against CVE-2021-44228
+# (61,567 bytes): urllib.request forces a "Connection: close"
+# request header, it cannot be overridden, and responses to
+# close requests truncated near the end in most trials, losing
+# the last 0.2-5.5 KB. The same request made with http.client,
+# which sends no Connection header, returned the full body in
+# 20 of 20 raw trials, and curl and urllib3 were likewise
+# reliable. The OSV server ignores Accept-Encoding, it returned
+# the plain body with no Content-Encoding, and ignores Range,
+# it returned 200 with the full body and no Content-Range, so
+# neither gzip nor range resume is available on this endpoint.
+# _default_fetch therefore uses http.client directly and reads
+# the Content-Length delimited body on a connection the server
+# does not close mid-response. The retry loop in fetch_advisory
+# stays as a backstop for transient network failures only.
 _OSV_FETCH_ATTEMPTS = 3
 _OSV_FETCH_BACKOFF_SECONDS = 0.5
+
+# Response body cap. OSV documents a 32 MiB response size limit
+# for HTTP/1.1, so a larger body is not a real OSV response. The
+# cap bounds memory use on a bad or compromised response, and
+# the gzip decode is capped at the same size.
+_OSV_MAX_BODY_BYTES = 32 * 1024 * 1024
 
 _ADVISORY_ID_RE = re.compile(
     r"^(CVE-\d{4}-\d{4,}|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}|OSV-\d{4}-\d+)$",
@@ -59,14 +82,163 @@ def normalise_advisory_id(advisory_id):
     return text.upper()
 
 
+def _proxy_url_for(host):
+    """Proxy URL for host from the process environment, or None.
+
+    Uses the standard library proxy discovery, the same source
+    urllib.request used, so an environment that needs a proxy for
+    egress keeps working after the move to http.client. The proxy
+    credential, when the proxy URL carries one, is used only to
+    build the CONNECT Proxy-Authorization header in
+    _osv_connection and is never logged or returned.
+    """
+    try:
+        if urllib.request.proxy_bypass_environment(host):
+            return None
+        proxies = urllib.request.getproxies()
+    except Exception:
+        return None
+    value = proxies.get("https") or proxies.get("all")
+    if not value:
+        return None
+    if "://" not in value:
+        value = "http://" + value
+    return urllib.parse.urlparse(value)
+
+
+def _osv_connection(url, timeout):
+    """HTTPS connection to the OSV API, through a proxy if set.
+
+    http.client is used directly because urllib.request forces a
+    Connection: close request header, which is the truncation
+    trigger measured above. No Connection header is sent here, so
+    the server keeps the connection open until the full
+    Content-Length body has been delivered.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname != _OSV_HOST:
+        raise RuntimeError(
+            "OSV API request refused for %s: not the OSV API host" % (url,)
+        )
+    port = parsed.port or 443
+    context = ssl.create_default_context()
+    proxy = _proxy_url_for(parsed.hostname)
+    if proxy is None:
+        return http.client.HTTPSConnection(
+            parsed.hostname, port, timeout=timeout, context=context
+        )
+    if proxy.scheme == "https":
+        # A TLS proxy needs a TLS connection to the proxy before
+        # the tunnel, which http.client does not layer. Fall back
+        # to a marker the caller turns into the urllib path, so
+        # behaviour in that rare setup is unchanged from v0.5.10.
+        return None
+    if proxy.scheme != "http" or not proxy.hostname:
+        raise RuntimeError(
+            "OSV API request failed for %s: unsupported proxy" % (url,)
+        )
+    connection = http.client.HTTPSConnection(
+        proxy.hostname, proxy.port or 3128, timeout=timeout, context=context
+    )
+    tunnel_headers = {}
+    if proxy.username:
+        user = urllib.parse.unquote(proxy.username)
+        password = urllib.parse.unquote(proxy.password or "")
+        token = base64.b64encode(
+            ("%s:%s" % (user, password)).encode("utf-8")
+        ).decode("ascii")
+        tunnel_headers["Proxy-Authorization"] = "Basic " + token
+    connection.set_tunnel(parsed.hostname, port, headers=tunnel_headers)
+    return connection
+
+
+def _decode_body(raw, content_encoding):
+    """Decode a response body, honouring a gzip Content-Encoding.
+
+    The decoded size is capped at _OSV_MAX_BODY_BYTES, so a
+    compressed body cannot expand without bound in memory.
+    """
+    if (content_encoding or "").lower() == "gzip":
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as handle:
+            data = handle.read(_OSV_MAX_BODY_BYTES + 1)
+        if len(data) > _OSV_MAX_BODY_BYTES:
+            raise RuntimeError("OSV API response too large after gzip decode")
+        return data
+    return raw
+
+
 def _default_fetch(url, timeout=30):
-    # The URL host here is the constant OSV_API_BASE; the only
-    # variable part is the advisory id, validated by
-    # normalise_advisory_id against a strict CVE/GHSA/OSV regex in
-    # fetch_advisory before this is called. No user-controlled host
-    # or path can reach this request. (Semgrep flags urlopen with a
-    # variable URL here; that is a false positive for this reason,
-    # recorded in the Phase 2-3 audit note.)
+    # The URL host is validated against the constant OSV host in
+    # _osv_connection; the only variable part is the advisory id,
+    # validated by normalise_advisory_id against a strict
+    # CVE/GHSA/OSV regex in fetch_advisory before this is called.
+    # No user-controlled host or path can reach this request.
+    connection = _osv_connection(url, timeout)
+    if connection is None:
+        return _default_fetch_via_urllib(url, timeout=timeout)
+    parsed = urllib.parse.urlparse(url)
+    target = parsed.path or "/"
+    if parsed.query:
+        target += "?" + parsed.query
+    try:
+        connection.request(
+            "GET",
+            target,
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "identity",
+                "User-Agent": "gmi-security-mcp",
+            },
+        )
+        resp = connection.getresponse()
+        status = resp.status
+        encoding = resp.getheader("Content-Encoding")
+        try:
+            raw = resp.read(_OSV_MAX_BODY_BYTES + 1)
+        except http.client.IncompleteRead as err:
+            # A truncated read is accepted only if the bytes
+            # actually received decode to a complete JSON
+            # document. Otherwise it is a failed read, and the
+            # caller retries on a fresh connection.
+            partial = err.partial or b""
+            try:
+                return status, json.loads(
+                    _decode_body(partial, encoding).decode()
+                )
+            except (ValueError, UnicodeDecodeError, OSError):
+                raise RuntimeError(
+                    "OSV API request failed for %s: %s" % (url, err)
+                )
+        if status == 404:
+            return 404, None
+        if status < 200 or status >= 300:
+            raise RuntimeError("OSV API HTTP %s for %s" % (status, url))
+        if len(raw) > _OSV_MAX_BODY_BYTES:
+            raise RuntimeError(
+                "OSV API response too large for %s: over %d bytes"
+                % (url, _OSV_MAX_BODY_BYTES)
+            )
+        return status, json.loads(_decode_body(raw, encoding).decode())
+    except RuntimeError:
+        raise
+    except (http.client.HTTPException, OSError, ValueError) as err:
+        # IncompleteRead, RemoteDisconnected, a dropped connection,
+        # and a non-JSON body are all request failures, not tool
+        # crashes: the caller turns a RuntimeError into a found
+        # false result with an error string.
+        raise RuntimeError("OSV API request failed for %s: %s" % (url, err))
+    finally:
+        connection.close()
+
+
+def _default_fetch_via_urllib(url, timeout=30):
+    """Previous urllib fetch, kept only for TLS proxy setups.
+
+    urllib.request forces Connection: close, the truncation
+    trigger, so this path is used solely when the configured
+    proxy itself is reached over TLS, which http.client cannot
+    layer. The retry loop in fetch_advisory still applies.
+    """
     request = urllib.request.Request(url, method="GET")
     request.add_header("Accept", "application/json")
     try:
@@ -74,9 +246,6 @@ def _default_fetch(url, timeout=30):
             try:
                 raw = resp.read()
             except http.client.IncompleteRead as err:
-                # A truncated read is accepted only if the bytes
-                # actually received parse as JSON. Otherwise it is
-                # a failed read, and the caller retries.
                 partial = err.partial or b""
                 try:
                     return resp.status, json.loads(partial.decode())
@@ -92,14 +261,6 @@ def _default_fetch(url, timeout=30):
     except urllib.error.URLError as err:
         raise RuntimeError("OSV API request failed for %s: %s" % (url, err))
     except (http.client.HTTPException, OSError, ValueError) as err:
-        # IncompleteRead, RemoteDisconnected, a dropped connection,
-        # and a non-JSON body are all request failures, not tool
-        # crashes: the caller turns a RuntimeError into a found
-        # false result with an error string. IncompleteRead is not
-        # a URLError subclass, so without this branch it escaped
-        # _default_fetch and crashed explain_cve in the MCP server
-        # (measured 2026-11-10: IncompleteRead 54656 bytes read,
-        # 6911 more expected, on CVE-2021-44228).
         raise RuntimeError("OSV API request failed for %s: %s" % (url, err))
 
 

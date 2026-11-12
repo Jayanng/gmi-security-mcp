@@ -7,6 +7,38 @@ recorded in the sections below; the 0.0.1 to 0.3.0 entries at
 the end were moved here from the README changelog section in
 the 0.5.8 README rewrite, so no history is lost.
 
+## [0.5.11] - 2026-11-12
+
+### Fixed
+
+- explain_cve OSV fetch fixed at the root, not with another
+  retry. Measured 2026-11-12 against CVE-2021-44228
+  (61,567 bytes): urllib.request forces a "Connection: close"
+  request header, it cannot be overridden, and responses to
+  close requests truncated near the end in most trials,
+  losing the last 0.2-5.5 KB as IncompleteRead. The same
+  request sent with no Connection header returned the full
+  body in 20 of 20 raw trials. The OSV server ignores
+  Accept-Encoding, returning the plain body with no
+  Content-Encoding, and ignores Range, returning 200 with
+  the full body and no Content-Range, so gzip and range
+  resume are not available on this endpoint. _default_fetch
+  now uses http.client directly, sends no Connection header,
+  reads the Content-Length delimited body, honours the
+  environment proxy through a CONNECT tunnel, and validates
+  that the host is the OSV API host. The v0.5.10 retry loop
+  stays as a backstop for transient failures, and a partial
+  read is still accepted only if it decodes to complete
+  JSON. After all attempts the tool still fails honestly
+  with found false and no invented data, and a 404 is never
+  retried. The urllib path is retained only for the rare
+  setup where the proxy itself is reached over TLS. The
+  response body and its gzip decode are capped at 32 MiB,
+  the size OSV documents as its HTTP/1.1 response limit.
+  New unit tests cover the no-Connection-header transport,
+  the non-OSV host refusal, gzip decoding, the proxy
+  tunnel, and both size caps.
+
 ## [0.5.10] - 2026-11-12
 
 ### Fixed

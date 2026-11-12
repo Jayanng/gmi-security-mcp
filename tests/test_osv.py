@@ -264,14 +264,83 @@ def test_fetch_advisory_found_and_missing():
         osv_mod.fetch_advisory("not-an-id", fetcher=FETCHER)
 
 
+class _FakeResponse:
+    def __init__(self, payload, status=200, headers=None, read_error=None):
+        self.status = status
+        self._payload = payload
+        self._headers = headers or {}
+        self._read_error = read_error
+
+    def getheader(self, name):
+        return self._headers.get(name)
+
+    def read(self, amt=-1):
+        if self._read_error is not None:
+            raise self._read_error
+        if amt is not None and amt >= 0:
+            return self._payload[:amt]
+        return self._payload
+
+
+class _FakeConnection:
+    def __init__(self, response):
+        self._response = response
+        self.request_args = None
+        self.closed = False
+
+    def request(self, method, target, headers=None):
+        self.request_args = (method, target, headers or {})
+
+    def getresponse(self):
+        return self._response
+
+    def close(self):
+        self.closed = True
+
+
+def _patch_connection(monkeypatch, connection):
+    monkeypatch.setattr(
+        osv_mod, "_osv_connection", lambda url, timeout: connection
+    )
+
+
+def test_default_fetch_uses_http_client_without_connection_close(monkeypatch):
+    # Root-cause regression test, measured live 2026-11-12:
+    # urllib.request forces Connection: close and the OSV
+    # response truncates near the end. The default fetch must go
+    # through http.client and must not send a Connection header.
+    import json as _json
+
+    payload = _json.dumps({"id": "CVE-2021-44228"}).encode()
+    connection = _FakeConnection(_FakeResponse(payload))
+    _patch_connection(monkeypatch, connection)
+    status, data = osv_mod._default_fetch(
+        "https://api.osv.dev/v1/vulns/CVE-2021-44228"
+    )
+    assert status == 200
+    assert data["id"] == "CVE-2021-44228"
+    method, target, headers = connection.request_args
+    assert method == "GET"
+    assert target == "/v1/vulns/CVE-2021-44228"
+    assert "Connection" not in headers
+    assert headers["Accept-Encoding"] == "identity"
+    assert connection.closed is True
+
+
+def test_default_fetch_rejects_non_osv_host():
+    with pytest.raises(RuntimeError, match="not the OSV API host"):
+        osv_mod._default_fetch("https://example.com/v1/vulns/CVE-2021-44228")
+
+
 def test_fetch_incomplete_read_returns_runtime_error(monkeypatch):
     import http.client
-    import urllib.request
 
-    def _boom(request, timeout=30):
-        raise http.client.IncompleteRead(b"x" * 10, 5)
-
-    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    connection = _FakeConnection(
+        _FakeResponse(
+            b"", read_error=http.client.IncompleteRead(b"x" * 10, 5)
+        )
+    )
+    _patch_connection(monkeypatch, connection)
     with pytest.raises(RuntimeError, match="OSV API request failed"):
         osv_mod._default_fetch("https://api.osv.dev/v1/vulns/CVE-2021-44228")
 
@@ -323,28 +392,91 @@ def test_fetch_still_fails_honestly_after_all_retries():
 
 def test_default_fetch_accepts_partial_read_only_if_json_parses(monkeypatch):
     import http.client
-    import urllib.request
 
     payload = b'{"id": "CVE-2021-44228"}'
-
-    class _Resp:
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def read(self):
-            raise http.client.IncompleteRead(payload, 5)
-
-    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _Resp())
+    connection = _FakeConnection(
+        _FakeResponse(
+            b"", read_error=http.client.IncompleteRead(payload, 5)
+        )
+    )
+    _patch_connection(monkeypatch, connection)
     status, data = osv_mod._default_fetch(
         "https://api.osv.dev/v1/vulns/CVE-2021-44228"
     )
     assert status == 200
     assert data["id"] == "CVE-2021-44228"
+
+
+def test_default_fetch_decompresses_gzip_response(monkeypatch):
+    import gzip as _gzip
+    import json as _json
+
+    payload = _gzip.compress(
+        _json.dumps({"id": "CVE-2021-44228"}).encode()
+    )
+    connection = _FakeConnection(
+        _FakeResponse(payload, headers={"Content-Encoding": "gzip"})
+    )
+    _patch_connection(monkeypatch, connection)
+    status, data = osv_mod._default_fetch(
+        "https://api.osv.dev/v1/vulns/CVE-2021-44228"
+    )
+    assert status == 200
+    assert data["id"] == "CVE-2021-44228"
+
+
+def test_default_fetch_rejects_oversize_body(monkeypatch):
+    import json as _json
+
+    monkeypatch.setattr(osv_mod, "_OSV_MAX_BODY_BYTES", 8)
+    payload = _json.dumps({"id": "CVE-2021-44228"}).encode()
+    connection = _FakeConnection(_FakeResponse(payload))
+    _patch_connection(monkeypatch, connection)
+    with pytest.raises(RuntimeError, match="too large"):
+        osv_mod._default_fetch("https://api.osv.dev/v1/vulns/CVE-2021-44228")
+
+
+def test_default_fetch_rejects_gzip_body_over_cap(monkeypatch):
+    import gzip as _gzip
+    import json as _json
+
+    raw_json = _json.dumps(
+        {"id": "CVE-2021-44228", "padding": "x" * 500}
+    ).encode()
+    payload = _gzip.compress(raw_json)
+    # Cap sits above the compressed size and below the decoded
+    # size, so only the decode cap can refuse this response.
+    monkeypatch.setattr(osv_mod, "_OSV_MAX_BODY_BYTES", len(payload) + 10)
+    assert len(raw_json) > len(payload) + 10
+    connection = _FakeConnection(
+        _FakeResponse(payload, headers={"Content-Encoding": "gzip"})
+    )
+    _patch_connection(monkeypatch, connection)
+    with pytest.raises(RuntimeError, match="too large"):
+        osv_mod._default_fetch("https://api.osv.dev/v1/vulns/CVE-2021-44228")
+
+
+def test_osv_connection_honours_http_proxy_and_tunnel(monkeypatch):
+    import urllib.request
+
+    monkeypatch.setattr(
+        urllib.request, "proxy_bypass_environment", lambda host: False
+    )
+    monkeypatch.setattr(
+        urllib.request,
+        "getproxies",
+        lambda: {"https": "http://proxy.example:3128"},
+    )
+    connection = osv_mod._osv_connection(
+        "https://api.osv.dev/v1/vulns/CVE-2021-44228", 30
+    )
+    try:
+        assert connection.host == "proxy.example"
+        assert connection.port == 3128
+        assert connection._tunnel_host == "api.osv.dev"
+        assert connection._tunnel_port == 443
+    finally:
+        connection.close()
 
 
 def test_explain_cve_fetch_failure_returns_found_false():
