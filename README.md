@@ -3,6 +3,7 @@
 <!-- mcp-name: io.github.Jayanng/gmi-security-mcp -->
 
 A security MCP server for coding agents, backed by GMI Inference. Your agent triages semgrep findings, scans repos, checks lockfiles against OSV, and verifies findings with a runnable PoC, all inside the editor, with the cost shown before every run.
+[![GMI Security MCP server](https://mcprush.com/badge/gmi-security-mcp/card.svg)](https://mcprush.com/to/gmi-security-mcp?ref=badge)
 
 PyPI: https://pypi.org/project/gmi-security-mcp/ — MCP Registry: https://registry.modelcontextprotocol.io/v0/servers?search=gmi-security-mcp — Repo: https://github.com/Jayanng/gmi-security-mcp
 
